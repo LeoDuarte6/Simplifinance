@@ -6,6 +6,27 @@
     <title>Simplifinance - Mockup</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        .page-section { min-height: calc(100vh - 120px); }
+        .loader {
+            border: 4px solid #f3f3f3; 
+            border-top: 4px solid #1E7976; /* Teal loader */
+            border-radius: 50%; width: 24px; height: 24px;
+            animation: spin 1s linear infinite; display: inline-block; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .plan-feature-icon { width: 1.25rem; height: 1.25rem; }
+        .tick-icon { color: #10B981; } .minus-icon { color: #9CA3AF; }
+        .plan-card { background-color: #FFFFFF; } .plan-header { background-color: #F3F4F6; } 
+        #file-drop-zone { border: 2px dashed #CBD5E0; border-radius: 0.5rem; padding: 2rem; text-align: center; cursor: pointer; background-color: #F9FAFB; transition: background-color 0.2s ease-in-out; }
+        #file-drop-zone:hover { background-color: #E5E7EB; }
+        #file-drop-zone .plus-icon { font-size: 2.5rem; line-height: 1; color: #9CA3AF; margin-bottom: 0.5rem; }
+        #upload-progress-container { margin-top: 0.5rem; width: 100%; background-color: #E5E7EB; border-radius: 0.25rem; overflow: hidden; }
+        #progress-bar { height: 20px; background-color: #10B981; width: 0%; transition: width 0.15s ease-out; color: white; text-align: center; font-size: 0.75rem; line-height: 20px; }
+    </style>
+
     <script type="module">
         // Firebase SDK imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -28,374 +49,356 @@
             where,
             Timestamp
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        // Storage import is no longer strictly needed for the faked upload but kept for structure
+        // Storage not used in current logic, but available if needed
         import { 
             getStorage 
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        // --- Firebase Configuration (User Provided) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDRy7LBdKooljXxTuZq_FvpfXJv4Ec65wQ", 
-            authDomain: "simplifinance-65ac9.firebaseapp.com",
-            projectId: "simplifinance-65ac9",
-            storageBucket: "simplifinance-65ac9.appspot.com", 
-            messagingSenderId: "122545134930",
-            appId: "1:122545134930:web:2ff0a9c123179697fbae8b"
-        };
-        
-        // Initialize Firebase
-        let app;
-        let auth;
-        let db;
-        // let storage; // Storage not directly used in faked upload
-        
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            // storage = getStorage(app); // Not strictly needed for faked upload
-            console.log("Firebase Initialized Successfully with Project ID:", firebaseConfig.projectId);
-        } catch (e) {
-            console.error("CRITICAL Error initializing Firebase:", e);
-            alertModal("Critical Error: Could not initialize Firebase. App may not function correctly. Check console for details.");
-        }
-
-        // --- Admin Configuration ---
-        const ADMIN_EMAIL = "admin@simplifinance.com"; // Hardcoded Admin Email
-
-        // --- Global State & Helper Functions ---
-        let currentUserId = null;
-        let selectedPlan = null; 
-        let isActualAdmin = false; 
-
-        // --- FAKE LIBRARY CONTENT FOR DEMO ---
-        const fakeLibraryEntries = [
-            { 
-                title: "Introduction to Budgeting", 
-                description: "Learn the basics of creating and sticking to a personal budget. This is a sample entry.", 
-                downloadUrl: "#", // Placeholder link
-                fileName: "budgeting_intro.zip", 
-                accessLevel: "essentials" 
-            },
-            { 
-                title: "Advanced Investment Strategies", 
-                description: "Explore advanced techniques for portfolio diversification and risk management. Sample premium content.", 
-                downloadUrl: "#", 
-                fileName: "advanced_investing.zip", 
-                accessLevel: "premium" 
-            },
-            { 
-                title: "Understanding Market Trends", 
-                description: "A guide to reading and interpreting financial market indicators. This is another sample entry.", 
-                downloadUrl: "#", 
-                fileName: "market_trends.zip", 
-                accessLevel: "essentials" 
-            },
-            { 
-                title: "Retirement Planning Guide", 
-                description: "Comprehensive guide to planning for a secure retirement. Sample content for all subscribers.", 
-                downloadUrl: "#", 
-                fileName: "retirement_planning.zip", 
-                accessLevel: "premium" 
-            }
-        ];
-
-        function showPage(pageId) {
-            document.querySelectorAll('.page-section').forEach(section => {
-                section.classList.add('hidden');
-            });
-            const page = document.getElementById(pageId);
-            if (page) {
-                page.classList.remove('hidden');
-                 console.log("Showing page:", pageId);
-            } else {
-                console.error("Page not found:", pageId, "- defaulting to home-page.");
-                document.getElementById('home-page').classList.remove('hidden'); 
-            }
-            window.scrollTo(0, 0); 
-        }
-
-        function updateAuthStateUI(user) {
-            console.log("updateAuthStateUI called. User:", user ? user.email : "null");
-            const userGreeting = document.getElementById('user-greeting');
-            const loginNavItem = document.getElementById('login-nav-item');
-            const logoutNavItem = document.getElementById('logout-nav-item');
-            const libraryNavItem = document.getElementById('library-nav-item');
-            const adminNavItem = document.getElementById('admin-nav-item'); 
-            const userIdDisplay = document.getElementById('user-id-display');
-
-            if (user) {
-                currentUserId = user.uid;
-                userGreeting.textContent = `Welcome, ${user.email || 'User'}!`;
-                loginNavItem.classList.add('hidden');
-                logoutNavItem.classList.remove('hidden');
-                libraryNavItem.classList.remove('hidden');
-                
-                isActualAdmin = (user.email === ADMIN_EMAIL); 
-                
-                adminNavItem.classList.remove('hidden'); 
-                console.log(`User logged in: ${user.email}. Is Designated Admin: ${isActualAdmin}. Admin page visible.`);
-
-                if (userIdDisplay) userIdDisplay.textContent = `User ID: ${currentUserId}`;
-
-                const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
-                if (currentPageId === 'login-page' || currentPageId === 'signup-billing-page') {
-                    showPage('library-page'); 
-                } else if (currentPageId === 'library-page' && libraryPageElement && !libraryPageElement.classList.contains('hidden')) {
-                    loadLibraryContent(); 
-                } else if (!currentPageId && libraryPageElement) { 
-                    showPage('library-page'); 
-                }
-            } else { // No user
-                currentUserId = null;
-                isActualAdmin = false;
-                userGreeting.textContent = '';
-                loginNavItem.classList.remove('hidden');
-                logoutNavItem.classList.add('hidden');
-                libraryNavItem.classList.add('hidden');
-                adminNavItem.classList.add('hidden');
-                if (userIdDisplay) userIdDisplay.textContent = 'Not logged in';
-                
-                const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
-                if (currentPageId === 'library-page' || currentPageId === 'admin-page' || currentPageId === 'signup-billing-page') {
-                    showPage('home-page');
-                } else if (!currentPageId) {
-                    showPage('home-page');
-                }
-            }
-        }
-        
-        async function saveUserSubscription(userId, email, planDetails) {
-            if (!userId || !planDetails) {
-                console.error("saveUserSubscription: User ID or Plan Details missing.");
-                alertModal("Error: Could not save subscription details. Missing information.");
-                return;
-            }
+        // --- App Initialization Function ---
+        async function initializeAndRunApp() {
+            console.log("Attempting to initialize Firebase...");
+            
+            // This is the "Magic Radio" fetch. It securely gets the config from Firebase Hosting.
             try {
-                const userDocRef = doc(db, "users", userId, "subscriptions", "current");
-                await setDoc(userDocRef, {
-                    userId: userId, email: email, planName: planDetails.name, 
-                    planType: planDetails.type, price: planDetails.price,   
-                    priceDisplay: planDetails.priceDisplay, subscribedOn: Timestamp.now(),
-                    status: "active" 
-                });
-                console.log("Subscription successfully saved for user:", userId);
-            } catch (error) {
-                console.error("Error saving user subscription to Firestore: ", error);
-                alertModal(`Error saving subscription: ${error.message}`);
+                const response = await fetch('/__/firebase/init.json');
+                const firebaseConfig = await response.json();
+
+                // Initialize Firebase with the fetched config
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+                
+                console.log("Firebase Initialized Successfully with Project ID:", firebaseConfig.projectId);
+
+                // Now that Firebase is initialized, run all the setup logic
+                runAppLogic(auth, db);
+
+            } catch (e) {
+                console.error("CRITICAL Error initializing Firebase:", e);
+                alertModal("Critical Error: Could not initialize Firebase. The app cannot function. Please refresh or contact support.");
             }
         }
 
-        function setupNavigation() {
-            document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showPage('home-page'); });
-            document.getElementById('login-nav-item').addEventListener('click', (e) => { e.preventDefault(); showPage('login-page'); });
-            document.getElementById('library-nav-item').addEventListener('click', (e) => { 
-                e.preventDefault(); 
-                if(currentUserId) showPage('library-page'); 
-                else { alertModal("Please log in to access the library."); showPage('login-page'); }
-            });
-            document.getElementById('admin-nav-item').addEventListener('click', (e) => { 
-                e.preventDefault(); 
-                if(currentUserId) { showPage('admin-page'); } 
-                else { alertModal("Please log in to access the admin area."); showPage('login-page');}
-            });
-            document.getElementById('logout-button').addEventListener('click', async () => {
-                try { await signOut(auth); selectedPlan = null; } 
-                catch (error) { console.error("Logout Error:", error); alertModal(`Logout Failed: ${error.message}`); }
-            });
-        }
+        // --- Main Application Logic ---
+        // This function runs only AFTER Firebase is confirmed to be ready.
+        function runAppLogic(auth, db) {
+            
+            // --- Admin Configuration ---
+            const ADMIN_EMAIL = "admin@simplifinance.com";
 
-        function setupSubscriptionPlanSelection() {
-            document.querySelectorAll('.select-plan-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    selectedPlan = {
-                        name: this.dataset.planName, type: this.dataset.planType,    
-                        price: this.dataset.planPrice, priceDisplay: this.dataset.planPriceDisplay 
-                    };
-                    const planDetailsCheckout = document.getElementById('plan-details-checkout');
-                    if (planDetailsCheckout) {
-                        planDetailsCheckout.innerHTML = `
-                            <h3 class="text-xl font-semibold text-gray-700">${selectedPlan.name} - ${selectedPlan.type || ''}</h3>
-                            <p class="text-2xl font-bold text-gray-800">${selectedPlan.priceDisplay || selectedPlan.price}</p>
-                        `;
-                    }
-                    showPage('signup-billing-page'); 
+            // --- Global State ---
+            let currentUserId = null;
+            let selectedPlan = null; 
+            let isActualAdmin = false; 
+
+            // --- FAKE LIBRARY CONTENT FOR DEMO ---
+            const fakeLibraryEntries = [
+                { 
+                    title: "Introduction to Budgeting", 
+                    description: "Learn the basics of creating and sticking to a personal budget. This is a sample entry.", 
+                    downloadUrl: "#", 
+                    fileName: "budgeting_intro.zip", 
+                    accessLevel: "essentials" 
+                },
+                { 
+                    title: "Advanced Investment Strategies", 
+                    description: "Explore advanced techniques for portfolio diversification and risk management. Sample premium content.", 
+                    downloadUrl: "#", 
+                    fileName: "advanced_investing.zip", 
+                    accessLevel: "premium" 
+                },
+                { 
+                    title: "Understanding Market Trends", 
+                    description: "A guide to reading and interpreting financial market indicators. This is another sample entry.", 
+                    downloadUrl: "#", 
+                    fileName: "market_trends.zip", 
+                    accessLevel: "essentials" 
+                },
+                { 
+                    title: "Retirement Planning Guide", 
+                    description: "Comprehensive guide to planning for a secure retirement. Sample content for all subscribers.", 
+                    downloadUrl: "#", 
+                    fileName: "retirement_planning.zip", 
+                    accessLevel: "premium" 
+                }
+            ];
+
+            function showPage(pageId) {
+                document.querySelectorAll('.page-section').forEach(section => {
+                    section.classList.add('hidden');
                 });
-            });
-        }
-
-        function setupSignupBillingForm() {
-            const signupBillingForm = document.getElementById('signup-billing-form');
-            const submitButton = document.getElementById('signup-billing-submit-btn');
-            const loader = document.getElementById('signup-billing-loader');
-
-            signupBillingForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-                if (!selectedPlan) {
-                    alertModal("Please select a subscription plan first."); showPage('home-page'); return;
+                const page = document.getElementById(pageId);
+                if (page) {
+                    page.classList.remove('hidden');
+                    console.log("Showing page:", pageId);
+                } else {
+                    console.error("Page not found:", pageId, "- defaulting to home-page.");
+                    document.getElementById('home-page').classList.remove('hidden'); 
                 }
-                const email = event.target.email.value;
-                const password = event.target.password.value;
-                if (!email || !password) { alertModal("Email and Password are required."); return; }
-                if (password.length < 6) { alertModal("Password should be at least 6 characters."); return; }
-                
-                loader.classList.remove('hidden'); submitButton.disabled = true;
-                try {
-                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                    await saveUserSubscription(userCredential.user.uid, email, selectedPlan);
-                    alertModal("Account created and subscription activated! Welcome to Simplifinance.", "Success");
-                } catch (error) {
-                    alertModal(`Signup Error: ${error.message}`); 
-                } finally {
-                    loader.classList.add('hidden'); submitButton.disabled = false;
-                }
-            });
-        }
+                window.scrollTo(0, 0); 
+            }
 
-        function setupLoginForm() {
-            const loginForm = document.getElementById('login-form');
-            const submitButton = document.getElementById('login-submit-btn');
-            const loader = document.getElementById('login-loader');
+            function updateAuthStateUI(user) {
+                console.log("updateAuthStateUI called. User:", user ? user.email : "null");
+                const userGreeting = document.getElementById('user-greeting');
+                const loginNavItem = document.getElementById('login-nav-item');
+                const logoutNavItem = document.getElementById('logout-nav-item');
+                const libraryNavItem = document.getElementById('library-nav-item');
+                const adminNavItem = document.getElementById('admin-nav-item'); 
 
-            loginForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-                const email = event.target.email.value;
-                const password = event.target.password.value;
-                loader.classList.remove('hidden'); submitButton.disabled = true;
-                try {
-                    await signInWithEmailAndPassword(auth, email, password);
-                    alertModal("Logged in successfully!", "Success");
-                } catch (error) {
-                    alertModal(`Login Failed: ${error.message}`);
-                } finally {
-                    loader.classList.add('hidden'); submitButton.disabled = false;
-                }
-            });
-        }
-
-        function setupAdminContentUploadForm() {
-            const adminUploadForm = document.getElementById('admin-upload-form');
-            const fileInput = document.getElementById('contentFile');
-            const fileDropZoneText = document.getElementById('file-drop-zone-text');
-            const uploadProgressContainer = document.getElementById('upload-progress-container'); 
-            const progressBar = document.getElementById('progress-bar');
-            const submitButton = document.getElementById('admin-upload-submit-btn');
-            const loader = document.getElementById('admin-upload-loader');
-            const fileDropZone = document.getElementById('file-drop-zone');
-
-
-            fileDropZone.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) fileDropZoneText.textContent = `File: ${e.target.files[0].name}`;
-                else fileDropZoneText.textContent = 'Click or drag ZIP file here';
-            });
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => fileDropZone.addEventListener(eventName, e => {e.preventDefault(); e.stopPropagation();}, false));
-
-
-            adminUploadForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-                console.log("Admin upload form submitted.");
-                const title = event.target.contentTitle.value;
-                const file = fileInput.files[0];
-
-                if (!currentUserId) { alertModal("Please log in to upload content."); return; }
-                if (!title) { alertModal("Title is required."); return; }
-                if (!file) { alertModal("Please select a ZIP file to upload."); return; }
-                
-                console.log("Admin Upload: Showing loader, disabling button, showing progress bar.");
-                loader.classList.remove('hidden');
-                submitButton.disabled = true;
-                uploadProgressContainer.classList.remove('hidden');
-                progressBar.style.width = '0%';
-                progressBar.textContent = '0%';
-
-                // Simulate progress
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += 10;
-                    if (progress <= 100) {
-                        progressBar.style.width = progress + '%';
-                        progressBar.textContent = progress + '%';
-                        console.log('Admin Upload: Progress:', progress + '%');
+                if (user) {
+                    currentUserId = user.uid;
+                    userGreeting.textContent = `Welcome, ${user.email || 'User'}!`;
+                    loginNavItem.classList.add('hidden');
+                    logoutNavItem.classList.remove('hidden');
+                    libraryNavItem.classList.remove('hidden');
+                    
+                    isActualAdmin = (user.email === ADMIN_EMAIL); 
+                    
+                    if (isActualAdmin) {
+                        adminNavItem.classList.remove('hidden'); 
                     } else {
-                        clearInterval(interval);
-                        console.log("Admin Upload: Simulated upload complete.");
-                        alertModal("Content upload successful!", "Success");
-                        adminUploadForm.reset(); 
-                        fileDropZoneText.textContent = 'Click or drag ZIP file here';
-                        fileInput.value = ''; 
-                        
-                        console.log("Admin Upload: Resetting UI.");
-                        loader.classList.add('hidden');
-                        submitButton.disabled = false;
-                        uploadProgressContainer.classList.add('hidden');
-                        progressBar.style.width = '0%';
-                        progressBar.textContent = '0%';
+                        adminNavItem.classList.add('hidden');
                     }
-                }, 150); 
-            });
-        }
-        
-        function loadLibraryContent() {
-            console.log("loadLibraryContent called. currentUserId:", currentUserId);
-            const libraryContentDiv = document.getElementById('library-content-list');
-            if (!libraryContentDiv) { console.error("library-content-list element not found."); return; }
+                    console.log(`User logged in: ${user.email}. Is Designated Admin: ${isActualAdmin}.`);
 
-            if (!currentUserId) {
-                libraryContentDiv.innerHTML = `
-                    <p class="text-red-500 col-span-full text-center py-10">Please log in to view content.</p>
-                    <button id="go-to-login-lib-btn-final" class="mt-4 mx-auto block bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md col-span-full">
-                        Go to Login
-                    </button>`;
-                const loginBtn = document.getElementById('go-to-login-lib-btn-final');
-                if (loginBtn) loginBtn.addEventListener('click', () => showPage('login-page'));
-                return;
+                    const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
+                    if (currentPageId === 'login-page' || currentPageId === 'signup-billing-page') {
+                        showPage('library-page'); 
+                    } else if (currentPageId === 'library-page') {
+                        loadLibraryContent(); 
+                    }
+                } else { // No user
+                    currentUserId = null;
+                    isActualAdmin = false;
+                    userGreeting.textContent = '';
+                    loginNavItem.classList.remove('hidden');
+                    logoutNavItem.classList.add('hidden');
+                    libraryNavItem.classList.add('hidden');
+                    adminNavItem.classList.add('hidden');
+                    
+                    const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
+                    if (currentPageId === 'library-page' || currentPageId === 'admin-page' || currentPageId === 'signup-billing-page') {
+                        showPage('home-page');
+                    }
+                }
             }
             
-            console.log("loadLibraryContent: Displaying fake library entries.");
-            let contentHTML = '';
-            fakeLibraryEntries.forEach((content) => { 
-                contentHTML += `
-                    <div class="bg-white p-6 rounded-lg shadow-lg mb-4 flex flex-col border border-gray-200 hover:shadow-xl transition-shadow">
-                        <h3 class="text-xl font-semibold text-gray-800 mb-2 truncate" title="${content.title}">${content.title}</h3>
-                        <p class="text-gray-600 text-sm mb-4 flex-grow min-h-[60px]">${content.description || 'No description.'}</p>
-                        <a href="${content.downloadUrl}" target="_blank" download="${content.fileName || 'download.zip'}" class="mt-auto inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md text-center text-sm transition-colors duration-300">
-                            Download: ${content.fileName || 'File'}
-                        </a>
-                        <p class="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100">Access: ${content.accessLevel}</p>
-                    </div>
-                `;
-            });
-            libraryContentDiv.innerHTML = contentHTML || '<p class="text-gray-500 col-span-full text-center py-10">No content configured.</p>';
-        }
-        
-        function alertModal(message, type = "error") {
-            const modal = document.getElementById('alert-modal');
-            const modalMessage = document.getElementById('alert-modal-message');
-            const modalTitle = document.getElementById('alert-modal-title');
-            if (!modal || !modalMessage || !modalTitle) {
-                console.error("Alert modal elements not found. Standard alert:", message);
-                alert(message); return;
+            async function saveUserSubscription(userId, email, planDetails) {
+                if (!userId || !planDetails) {
+                    console.error("saveUserSubscription: User ID or Plan Details missing.");
+                    alertModal("Error: Could not save subscription details. Missing information.");
+                    return;
+                }
+                try {
+                    const userDocRef = doc(db, "users", userId);
+                    await setDoc(userDocRef, {
+                        email: email,
+                        planName: planDetails.name, 
+                        planType: planDetails.type,
+                        subscribedOn: Timestamp.now(),
+                        status: "active" 
+                    });
+                    console.log("Subscription successfully saved for user:", userId);
+                } catch (error) {
+                    console.error("Error saving user subscription to Firestore: ", error);
+                    alertModal(`Error saving subscription: ${error.message}`);
+                }
             }
-            modalMessage.textContent = message;
-            modalTitle.textContent = type === "success" ? "Success!" : "Alert";
-            modalTitle.className = `text-xl font-bold mb-4 ${type === "success" ? "text-green-600" : "text-red-600"}`;
-            modal.classList.remove('hidden'); modal.classList.add('flex');
-            const modalCloseButton = document.getElementById('alert-modal-close');
-            if (modalCloseButton) modalCloseButton.onclick = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
-            modal.onclick = (event) => { if (event.target === modal) { modal.classList.add('hidden'); modal.classList.remove('flex');}};
-        }
-        
-        let libraryPageElement; 
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            console.log("DOM Content Loaded. Initializing Simplifinance App.");
-            if (!auth || !db ) { 
-                console.error("DOMContentLoaded: Firebase services not properly initialized. Aborting setup.");
-                alertModal("CRITICAL ERROR: Firebase services failed. Refresh."); return; 
+            function setupNavigation() {
+                document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showPage('home-page'); });
+                document.getElementById('login-nav-item').addEventListener('click', (e) => { e.preventDefault(); showPage('login-page'); });
+                document.getElementById('library-nav-item').addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    if(currentUserId) showPage('library-page'); 
+                    else { alertModal("Please log in to access the library."); showPage('login-page'); }
+                });
+                document.getElementById('admin-nav-item').addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    if(currentUserId && isActualAdmin) { showPage('admin-page'); } 
+                    else { alertModal("You do not have permission to access this page.");}
+                });
+                document.getElementById('logout-button').addEventListener('click', async () => {
+                    try { await signOut(auth); selectedPlan = null; } 
+                    catch (error) { console.error("Logout Error:", error); alertModal(`Logout Failed: ${error.message}`); }
+                });
+            }
+
+            function setupSubscriptionPlanSelection() {
+                document.querySelectorAll('.select-plan-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        selectedPlan = {
+                            name: this.dataset.planName, type: this.dataset.planType,    
+                            price: this.dataset.planPrice, priceDisplay: this.dataset.planPriceDisplay 
+                        };
+                        const planDetailsCheckout = document.getElementById('plan-details-checkout');
+                        if (planDetailsCheckout) {
+                            planDetailsCheckout.innerHTML = `
+                                <h3 class="text-xl font-semibold text-gray-700">${selectedPlan.name} - ${selectedPlan.type || ''}</h3>
+                                <p class="text-2xl font-bold text-gray-800">${selectedPlan.priceDisplay || selectedPlan.price}</p>
+                            `;
+                        }
+                        showPage('signup-billing-page'); 
+                    });
+                });
+            }
+
+            function setupSignupBillingForm() {
+                const signupBillingForm = document.getElementById('signup-billing-form');
+                const submitButton = document.getElementById('signup-billing-submit-btn');
+                const loader = document.getElementById('signup-billing-loader');
+
+                signupBillingForm.addEventListener('submit', async function(event) {
+                    event.preventDefault();
+                    if (!selectedPlan) {
+                        alertModal("Please select a subscription plan first."); showPage('home-page'); return;
+                    }
+                    const email = event.target.email.value;
+                    const password = event.target.password.value;
+                    if (!email || !password) { alertModal("Email and Password are required."); return; }
+                    if (password.length < 6) { alertModal("Password should be at least 6 characters."); return; }
+                    
+                    loader.classList.remove('hidden'); submitButton.disabled = true;
+                    try {
+                        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                        await saveUserSubscription(userCredential.user.uid, email, selectedPlan);
+                        alertModal("Account created and subscription activated! Welcome to Simplifinance.", "Success");
+                    } catch (error) {
+                        alertModal(`Signup Error: ${error.message}`); 
+                    } finally {
+                        loader.classList.add('hidden'); submitButton.disabled = false;
+                    }
+                });
+            }
+
+            function setupLoginForm() {
+                const loginForm = document.getElementById('login-form');
+                const submitButton = document.getElementById('login-submit-btn');
+                const loader = document.getElementById('login-loader');
+
+                loginForm.addEventListener('submit', async function(event) {
+                    event.preventDefault();
+                    const email = event.target.email.value;
+                    const password = event.target.password.value;
+                    loader.classList.remove('hidden'); submitButton.disabled = true;
+                    try {
+                        await signInWithEmailAndPassword(auth, email, password);
+                        alertModal("Logged in successfully!", "Success");
+                    } catch (error) {
+                        alertModal(`Login Failed: ${error.message}`);
+                    } finally {
+                        loader.classList.add('hidden'); submitButton.disabled = false;
+                    }
+                });
+            }
+
+            function setupAdminContentUploadForm() {
+                const adminUploadForm = document.getElementById('admin-upload-form');
+                const fileInput = document.getElementById('contentFile');
+                const fileDropZoneText = document.getElementById('file-drop-zone-text');
+                const uploadProgressContainer = document.getElementById('upload-progress-container'); 
+                const progressBar = document.getElementById('progress-bar');
+                const submitButton = document.getElementById('admin-upload-submit-btn');
+                const loader = document.getElementById('admin-upload-loader');
+                const fileDropZone = document.getElementById('file-drop-zone');
+
+                fileDropZone.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) fileDropZoneText.textContent = `File: ${e.target.files[0].name}`;
+                    else fileDropZoneText.textContent = 'Click or drag ZIP file here';
+                });
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => fileDropZone.addEventListener(eventName, e => {e.preventDefault(); e.stopPropagation();}, false));
+
+                adminUploadForm.addEventListener('submit', async function(event) {
+                    event.preventDefault();
+                    console.log("Admin upload form submitted.");
+                    const title = event.target.contentTitle.value;
+                    const file = fileInput.files[0];
+
+                    if (!currentUserId) { alertModal("Please log in to upload content."); return; }
+                    if (!title) { alertModal("Title is required."); return; }
+                    if (!file) { alertModal("Please select a ZIP file to upload."); return; }
+                    
+                    loader.classList.remove('hidden');
+                    submitButton.disabled = true;
+                    uploadProgressContainer.classList.remove('hidden');
+                    progressBar.style.width = '0%';
+                    progressBar.textContent = '0%';
+
+                    // Simulate progress
+                    let progress = 0;
+                    const interval = setInterval(() => {
+                        progress += 10;
+                        if (progress <= 100) {
+                            progressBar.style.width = progress + '%';
+                            progressBar.textContent = progress + '%';
+                        } else {
+                            clearInterval(interval);
+                            alertModal("Content upload successful!", "Success");
+                            adminUploadForm.reset(); 
+                            fileDropZoneText.textContent = 'Click or drag ZIP file here';
+                            fileInput.value = ''; 
+                            
+                            loader.classList.add('hidden');
+                            submitButton.disabled = false;
+                            uploadProgressContainer.classList.add('hidden');
+                        }
+                    }, 150); 
+                });
             }
             
-            libraryPageElement = document.getElementById('library-page');
+            function loadLibraryContent() {
+                console.log("loadLibraryContent called. currentUserId:", currentUserId);
+                const libraryContentDiv = document.getElementById('library-content-list');
+                if (!libraryContentDiv) { console.error("library-content-list element not found."); return; }
+
+                if (!currentUserId) {
+                    libraryContentDiv.innerHTML = `
+                        <p class="text-red-500 col-span-full text-center py-10">Please log in to view content.</p>
+                        <button id="go-to-login-lib-btn-final" class="mt-4 mx-auto block bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md col-span-full">
+                            Go to Login
+                        </button>`;
+                    const loginBtn = document.getElementById('go-to-login-lib-btn-final');
+                    if (loginBtn) loginBtn.addEventListener('click', () => showPage('login-page'));
+                    return;
+                }
+                
+                console.log("loadLibraryContent: Displaying fake library entries.");
+                let contentHTML = '';
+                fakeLibraryEntries.forEach((content) => { 
+                    contentHTML += `
+                        <div class="bg-white p-6 rounded-lg shadow-lg mb-4 flex flex-col border border-gray-200 hover:shadow-xl transition-shadow">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-2 truncate" title="${content.title}">${content.title}</h3>
+                            <p class="text-gray-600 text-sm mb-4 flex-grow min-h-[60px]">${content.description || 'No description.'}</p>
+                            <a href="${content.downloadUrl}" target="_blank" download="${content.fileName || 'download.zip'}" class="mt-auto inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md text-center text-sm transition-colors duration-300">
+                                Download: ${content.fileName || 'File'}
+                            </a>
+                            <p class="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100">Access: ${content.accessLevel}</p>
+                        </div>
+                    `;
+                });
+                libraryContentDiv.innerHTML = contentHTML || '<p class="text-gray-500 col-span-full text-center py-10">No content configured.</p>';
+            }
+            
+            function alertModal(message, type = "error") {
+                const modal = document.getElementById('alert-modal');
+                const modalMessage = document.getElementById('alert-modal-message');
+                const modalTitle = document.getElementById('alert-modal-title');
+                if (!modal || !modalMessage || !modalTitle) {
+                    console.error("Alert modal elements not found. Standard alert:", message);
+                    alert(message); return;
+                }
+                modalMessage.textContent = message;
+                modalTitle.textContent = type === "success" ? "Success!" : "Alert";
+                modalTitle.className = `text-xl font-bold mb-4 ${type === "success" ? "text-green-600" : "text-red-600"}`;
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+                const modalCloseButton = document.getElementById('alert-modal-close');
+                if (modalCloseButton) modalCloseButton.onclick = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+                modal.onclick = (event) => { if (event.target === modal) { modal.classList.add('hidden'); modal.classList.remove('flex');}};
+            }
+            
+            // --- Run The App ---
             onAuthStateChanged(auth, (user) => { updateAuthStateUI(user); });
             
             setupNavigation();
@@ -404,8 +407,12 @@
             setupLoginForm();
             setupAdminContentUploadForm(); 
             
-            if (!auth.currentUser) showPage('home-page'); 
+            if (!auth.currentUser) {
+                showPage('home-page'); 
+            }
             
+            // Setup the observer for the library page
+            const libraryPageElement = document.getElementById('library-page');
             if(libraryPageElement) { 
                 const observer = new MutationObserver((mutationsList) => {
                     for(const mutation of mutationsList) {
@@ -418,75 +425,51 @@
                 });
                 observer.observe(libraryPageElement, { attributes: true });
             }
-            console.log("Simplifinance App Initialized.");
-        });
-
-    </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
-        .page-section { min-height: calc(100vh - 120px); }
-        .loader {
-            border: 4px solid #f3f3f3; 
-            border-top: 4px solid #1E7976; /* Teal loader */
-            border-radius: 50%; width: 24px; height: 24px;
-            animation: spin 1s linear infinite; display: inline-block; 
+            console.log("Simplifinance App Logic is set up.");
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .plan-feature-icon { width: 1.25rem; height: 1.25rem; }
-        .tick-icon { color: #10B981; } .minus-icon { color: #9CA3AF; }
-        .plan-card { background-color: #FFFFFF; } .plan-header { background-color: #F3F4F6; } 
-        #file-drop-zone { border: 2px dashed #CBD5E0; border-radius: 0.5rem; padding: 2rem; text-align: center; cursor: pointer; background-color: #F9FAFB; transition: background-color 0.2s ease-in-out; }
-        #file-drop-zone:hover { background-color: #E5E7EB; }
-        #file-drop-zone .plus-icon { font-size: 2.5rem; line-height: 1; color: #9CA3AF; margin-bottom: 0.5rem; }
-        #upload-progress-container { margin-top: 0.5rem; width: 100%; background-color: #E5E7EB; border-radius: 0.25rem; overflow: hidden; }
-        #progress-bar { height: 20px; background-color: #10B981; width: 0%; transition: width 0.15s ease-out; color: white; text-align: center; font-size: 0.75rem; line-height: 20px; }
-    </style>
+
+        // --- Entry Point ---
+        // This runs as soon as the DOM is ready.
+        document.addEventListener('DOMContentLoaded', initializeAndRunApp);
+    </script>
 </head>
 <body class="text-gray-800">
 
-    <!-- Header / Navigation -->
     <header class="bg-gradient-to-r from-white via-teal-50 to-white shadow-md sticky top-0 z-50">
       <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
         <div class="flex items-center space-x-3">
-          <!-- Logo Circle -->
           <div class="w-10 h-10 rounded-full border-2 border-teal-700 flex items-center justify-center font-bold text-teal-700 text-lg bg-white shadow-sm">
             SF
           </div>
-          <span class="text-2xl font-bold text-gray-700 tracking-tight">Simplifinance</span>
+          <a href="#" id="nav-home-logo" class="text-2xl font-bold text-gray-700 tracking-tight">Simplifinance</a>
         </div>
         <div class="flex items-center space-x-2 md:space-x-4">
           <a href="#" id="nav-home" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Home</a>
-          <a href="#" id="nav-about" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">About Us</a>
-          <a href="#" id="nav-services" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Services</a>
-          <a href="#" id="nav-educational-library" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Educational Library</a>
+          <span id="user-greeting" class="text-sm text-gray-700 font-medium hidden md:inline"></span>
           <a href="#" id="login-nav-item" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Login</a>
           <a href="#" id="library-nav-item" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition hidden">Library</a>
-          <a href="#" id="admin-nav-item" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition hidden">Admin</a>
+          <a href="#" id="admin-nav-item" class="px-3 py-2 rounded-md text-base font-semibold text-red-500 hover:bg-red-100 transition hidden">Admin</a>
           <div id="logout-nav-item" class="hidden">
-            <button id="logout-button" class="px-3 py-2 rounded-md text-base font-semibold text-white bg-red-500 hover:bg-red-600">Logout</button>
+            <button id="logout-button" class="px-4 py-2 rounded-md text-base font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors">Logout</button>
           </div>
-          <!-- Schedule a Demo Button -->
           <a href="https://calendly.com/jack-simplifinancellc/simplifinance-demo" target="_blank" rel="noopener" class="ml-2 px-5 py-2 rounded-full bg-teal-700 text-white font-bold text-base shadow-md hover:bg-teal-800 transition hidden sm:inline-block">SCHEDULE A DEMO</a>
         </div>
       </nav>
     </header>
 
-    <!-- Main Content Area -->
     <main class="container mx-auto px-4 sm:px-6 py-8">
 
-        <!-- Home Page -->
         <section id="home-page" class="page-section">
-            <!-- HERO SECTION ADDED BELOW -->
             <div class="relative bg-gradient-to-r from-teal-600 to-teal-400 rounded-xl shadow-lg mb-12 overflow-hidden">
               <div class="absolute inset-0 bg-black bg-opacity-20"></div>
               <div class="relative z-10 px-8 py-16 text-center text-white">
                 <h1 class="text-4xl sm:text-5xl font-extrabold mb-4 drop-shadow-lg">Deliver Clarity.<br>Build Client Confidence.</h1>
                 <p class="text-lg sm:text-2xl font-medium mb-8 drop-shadow">Empowering Advisors to Educate Clients Through Clear Communication</p>
-                <a href="#" class="inline-block bg-white text-teal-700 font-bold px-8 py-3 rounded-full shadow-lg hover:bg-teal-50 transition text-lg">Learn More</a>
+                <a href="#plans" onclick="document.getElementById('plans').scrollIntoView({ behavior: 'smooth' }); return false;" class="inline-block bg-white text-teal-700 font-bold px-8 py-3 rounded-full shadow-lg hover:bg-teal-50 transition text-lg">Learn More</a>
               </div>
             </div>
-            <div class="text-center mb-12">
-                <h1 class="text-3xl sm:text-4xl font-bold text-gray-700 mb-3">Our Subscription Plans</h1>
+            <div id="plans" class="text-center mb-12 pt-8">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-700 mb-3">Our Subscription Plans</h2>
             </div>
             <div class="flex flex-col lg:flex-row justify-center items-start gap-8">
                 <div class="hidden lg:block w-full lg:w-1/4 pt-20 pr-4"> 
@@ -542,7 +525,6 @@
             </div>
         </section>
 
-        <!-- Sign Up & Billing Page (Combined) -->
         <section id="signup-billing-page" class="page-section hidden">
             <div class="max-w-lg mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-8">
                 <h2 class="text-2xl font-bold text-center text-gray-700 mb-6">Complete Your Sign Up</h2>
@@ -563,8 +545,8 @@
                         </div>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3 mt-6">Billing Information )</h3>
-                        <p class="text-xs text-gray-500 mb-3"></p>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3 mt-6">Billing Information (Mock)</h3>
+                        <p class="text-xs text-gray-500 mb-3">No real card details are processed. This is for demonstration only.</p>
                         <div>
                             <label for="cardName" class="block text-sm font-medium text-gray-600">Name on Card</label>
                             <input type="text" name="cardName" id="cardName" class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="Full Name">
@@ -594,7 +576,6 @@
             </div>
         </section>
 
-        <!-- Login Page -->
         <section id="login-page" class="page-section hidden">
             <div class="max-w-md mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-10">
                 <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Login to Simplifinance</h2>
@@ -615,12 +596,11 @@
                     </div>
                 </form>
                  <p class="mt-6 text-center text-sm text-gray-500">
-                    Don't have an account? <a href="index.html" class="font-medium text-teal-600 hover:text-teal-500">Sign up for a plan.</a>
+                    Don't have an account? <a href="#" onclick="showPage('home-page'); return false;" class="font-medium text-teal-600 hover:text-teal-500">Sign up for a plan.</a>
                 </p>
             </div>
         </section>
 
-        <!-- Educational Library Page (Gated Content) -->
         <section id="library-page" class="page-section hidden">
             <div class="text-center mb-10">
                 <h1 class="text-3xl font-bold text-gray-700 mb-3">Educational Library</h1>
@@ -631,7 +611,6 @@
             </div>
         </section>
 
-        <!-- Admin Page (Content Upload) -->
         <section id="admin-page" class="page-section hidden">
             <div class="max-w-lg mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-10">
                 <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Admin - Upload Content</h2>
@@ -673,13 +652,11 @@
         </section>
     </main>
 
-    <!-- Footer -->
     <footer class="bg-gray-700 text-gray-300 text-center p-6 mt-12">
         <p>&copy; <span id="currentYear"></span> Simplifinance. All rights reserved. (Mock Concept)</p>
         <script>document.getElementById('currentYear').textContent = new Date().getFullYear();</script>
     </footer>
 
-    <!-- Alert Modal -->
     <div id="alert-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden z-50 p-4">
         <div class="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
@@ -698,4 +675,3 @@
 
 </body>
 </html>
-    <!-- Fortnite Comment -->
