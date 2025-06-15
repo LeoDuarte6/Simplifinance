@@ -7,16 +7,74 @@
       "**/node_modules/**"
     ],
     "rewrites": [
-      {"source": "/", "destination": "/index.html"},
-      {"source": "/services/", "destination": "/services.html"},
-      {"source": "/educational-library/", "destination": "/educational-library.html"},
-      {"source": "/login/", "destination": "/login.html"},
-      {"source": "/contact/", "destination": "/contact.html"},
-      {"source": "/refund_returns/", "destination": "/refund_returns.html"},
-      {"source": "/terms-of-service/", "destination": "/terms-of-service.html"},
-      {"source": "/registration/", "destination": "/registration.html"},
-      {"source": "/branding/", "destination": "/branding.html"},
-      {"source": "**", "destination": "/index.html"} // Fallback
+      {
+        "source": "/",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/services/",
+        "destination": "/services.html"
+      },
+      {
+        "source": "/educational-library/",
+        "destination": "/educational-library.html"
+      },
+      {
+        "source": "/login/",
+        "destination": "/login.html"
+      },
+      {
+        "source": "/contact/",
+        "destination": "/contact.html"
+      },
+      {
+        "source": "/refund_returns/",
+        "destination": "/refund_returns.html"
+      },
+      {
+        "source": "/terms-of-service/",
+        "destination": "/terms-of-service.html"
+      },
+      {
+        "source": "/registration/",
+        "destination": "/registration.html"
+      },
+      {
+        "source": "/branding/",
+        "destination": "/branding.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ]
-  }
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
 }
