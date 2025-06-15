@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplifinance - Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module">
+        // Firebase SDK imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut, 
+            onAuthStateChanged
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc,
+            collection,
+            addDoc,
+            onSnapshot,
+            query,
+            where,
+            Timestamp
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Storage import is no longer strictly needed for the faked upload but kept for structure
+        import { 
+            getStorage 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        // --- Firebase Configuration (User Provided) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDRy7LBdKooljXxTuZq_FvpfXJv4Ec65wQ", 
+            authDomain: "simplifinance-65ac9.firebaseapp.com",
+            projectId: "simplifinance-65ac9",
+            storageBucket: "simplifinance-65ac9.appspot.com", 
+            messagingSenderId: "122545134930",
+            appId: "1:122545134930:web:2ff0a9c123179697fbae8b"
+        };
+        
+        // Initialize Firebase
+        let app;
+        let auth;
+        let db;
+        // let storage; // Storage not directly used in faked upload
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            // storage = getStorage(app); // Not strictly needed for faked upload
+            console.log("Firebase Initialized Successfully with Project ID:", firebaseConfig.projectId);
+        } catch (e) {
+            console.error("CRITICAL Error initializing Firebase:", e);
+            alertModal("Critical Error: Could not initialize Firebase. App may not function correctly. Check console for details.");
+        }
+
+        // --- Admin Configuration ---
+        const ADMIN_EMAIL = "admin@simplifinance.com"; // Hardcoded Admin Email
+
+        // --- Global State & Helper Functions ---
+        let currentUserId = null;
+        let selectedPlan = null; 
+        let isActualAdmin = false; 
+
+        // --- FAKE LIBRARY CONTENT FOR DEMO ---
+        const fakeLibraryEntries = [
+            { 
+                title: "Introduction to Budgeting", 
+                description: "Learn the basics of creating and sticking to a personal budget. This is a sample entry.", 
+                downloadUrl: "#", // Placeholder link
+                fileName: "budgeting_intro.zip", 
+                accessLevel: "essentials" 
+            },
+            { 
+                title: "Advanced Investment Strategies", 
+                description: "Explore advanced techniques for portfolio diversification and risk management. Sample premium content.", 
+                downloadUrl: "#", 
+                fileName: "advanced_investing.zip", 
+                accessLevel: "premium" 
+            },
+            { 
+                title: "Understanding Market Trends", 
+                description: "A guide to reading and interpreting financial market indicators. This is another sample entry.", 
+                downloadUrl: "#", 
+                fileName: "market_trends.zip", 
+                accessLevel: "essentials" 
+            },
+            { 
+                title: "Retirement Planning Guide", 
+                description: "Comprehensive guide to planning for a secure retirement. Sample content for all subscribers.", 
+                downloadUrl: "#", 
+                fileName: "retirement_planning.zip", 
+                accessLevel: "premium" 
+            }
+        ];
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            const page = document.getElementById(pageId);
+            if (page) {
+                page.classList.remove('hidden');
+                 console.log("Showing page:", pageId);
+            } else {
+                console.error("Page not found:", pageId, "- defaulting to home-page.");
+                document.getElementById('home-page').classList.remove('hidden'); 
+            }
+            window.scrollTo(0, 0); 
+        }
+
+        function updateAuthStateUI(user) {
+            console.log("updateAuthStateUI called. User:", user ? user.email : "null");
+            const userGreeting = document.getElementById('user-greeting');
+            const loginNavItem = document.getElementById('login-nav-item');
+            const logoutNavItem = document.getElementById('logout-nav-item');
+            const libraryNavItem = document.getElementById('library-nav-item');
+            const adminNavItem = document.getElementById('admin-nav-item'); 
+            const userIdDisplay = document.getElementById('user-id-display');
+
+            if (user) {
+                currentUserId = user.uid;
+                userGreeting.textContent = `Welcome, ${user.email || 'User'}!`;
+                loginNavItem.classList.add('hidden');
+                logoutNavItem.classList.remove('hidden');
+                libraryNavItem.classList.remove('hidden');
+                
+                isActualAdmin = (user.email === ADMIN_EMAIL); 
+                
+                adminNavItem.classList.remove('hidden'); 
+                console.log(`User logged in: ${user.email}. Is Designated Admin: ${isActualAdmin}. Admin page visible.`);
+
+                if (userIdDisplay) userIdDisplay.textContent = `User ID: ${currentUserId}`;
+
+                const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
+                if (currentPageId === 'login-page' || currentPageId === 'signup-billing-page') {
+                    showPage('library-page'); 
+                } else if (currentPageId === 'library-page' && libraryPageElement && !libraryPageElement.classList.contains('hidden')) {
+                    loadLibraryContent(); 
+                } else if (!currentPageId && libraryPageElement) { 
+                    showPage('library-page'); 
+                }
+            } else { // No user
+                currentUserId = null;
+                isActualAdmin = false;
+                userGreeting.textContent = '';
+                loginNavItem.classList.remove('hidden');
+                logoutNavItem.classList.add('hidden');
+                libraryNavItem.classList.add('hidden');
+                adminNavItem.classList.add('hidden');
+                if (userIdDisplay) userIdDisplay.textContent = 'Not logged in';
+                
+                const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
+                if (currentPageId === 'library-page' || currentPageId === 'admin-page' || currentPageId === 'signup-billing-page') {
+                    showPage('home-page');
+                } else if (!currentPageId) {
+                    showPage('home-page');
+                }
+            }
+        }
+        
+        async function saveUserSubscription(userId, email, planDetails) {
+            if (!userId || !planDetails) {
+                console.error("saveUserSubscription: User ID or Plan Details missing.");
+                alertModal("Error: Could not save subscription details. Missing information.");
+                return;
+            }
+            try {
+                const userDocRef = doc(db, "users", userId, "subscriptions", "current");
+                await setDoc(userDocRef, {
+                    userId: userId, email: email, planName: planDetails.name, 
+                    planType: planDetails.type, price: planDetails.price,   
+                    priceDisplay: planDetails.priceDisplay, subscribedOn: Timestamp.now(),
+                    status: "active" 
+                });
+                console.log("Subscription successfully saved for user:", userId);
+            } catch (error) {
+                console.error("Error saving user subscription to Firestore: ", error);
+                alertModal(`Error saving subscription: ${error.message}`);
+            }
+        }
+
+        function setupNavigation() {
+            document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showPage('home-page'); });
+            document.getElementById('login-nav-item').addEventListener('click', (e) => { e.preventDefault(); showPage('login-page'); });
+            document.getElementById('library-nav-item').addEventListener('click', (e) => { 
+                e.preventDefault(); 
+                if(currentUserId) showPage('library-page'); 
+                else { alertModal("Please log in to access the library."); showPage('login-page'); }
+            });
+            document.getElementById('admin-nav-item').addEventListener('click', (e) => { 
+                e.preventDefault(); 
+                if(currentUserId) { showPage('admin-page'); } 
+                else { alertModal("Please log in to access the admin area."); showPage('login-page');}
+            });
+            document.getElementById('logout-button').addEventListener('click', async () => {
+                try { await signOut(auth); selectedPlan = null; } 
+                catch (error) { console.error("Logout Error:", error); alertModal(`Logout Failed: ${error.message}`); }
+            });
+        }
+
+        function setupSubscriptionPlanSelection() {
+            document.querySelectorAll('.select-plan-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    selectedPlan = {
+                        name: this.dataset.planName, type: this.dataset.planType,    
+                        price: this.dataset.planPrice, priceDisplay: this.dataset.planPriceDisplay 
+                    };
+                    const planDetailsCheckout = document.getElementById('plan-details-checkout');
+                    if (planDetailsCheckout) {
+                        planDetailsCheckout.innerHTML = `
+                            <h3 class="text-xl font-semibold text-gray-700">${selectedPlan.name} - ${selectedPlan.type || ''}</h3>
+                            <p class="text-2xl font-bold text-gray-800">${selectedPlan.priceDisplay || selectedPlan.price}</p>
+                        `;
+                    }
+                    showPage('signup-billing-page'); 
+                });
+            });
+        }
+
+        function setupSignupBillingForm() {
+            const signupBillingForm = document.getElementById('signup-billing-form');
+            const submitButton = document.getElementById('signup-billing-submit-btn');
+            const loader = document.getElementById('signup-billing-loader');
+
+            signupBillingForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                if (!selectedPlan) {
+                    alertModal("Please select a subscription plan first."); showPage('home-page'); return;
+                }
+                const email = event.target.email.value;
+                const password = event.target.password.value;
+                if (!email || !password) { alertModal("Email and Password are required."); return; }
+                if (password.length < 6) { alertModal("Password should be at least 6 characters."); return; }
+                
+                loader.classList.remove('hidden'); submitButton.disabled = true;
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    await saveUserSubscription(userCredential.user.uid, email, selectedPlan);
+                    alertModal("Account created and subscription activated! Welcome to Simplifinance.", "Success");
+                } catch (error) {
+                    alertModal(`Signup Error: ${error.message}`); 
+                } finally {
+                    loader.classList.add('hidden'); submitButton.disabled = false;
+                }
+            });
+        }
+
+        function setupLoginForm() {
+            const loginForm = document.getElementById('login-form');
+            const submitButton = document.getElementById('login-submit-btn');
+            const loader = document.getElementById('login-loader');
+
+            loginForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const email = event.target.email.value;
+                const password = event.target.password.value;
+                loader.classList.remove('hidden'); submitButton.disabled = true;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    alertModal("Logged in successfully!", "Success");
+                } catch (error) {
+                    alertModal(`Login Failed: ${error.message}`);
+                } finally {
+                    loader.classList.add('hidden'); submitButton.disabled = false;
+                }
+            });
+        }
+
+        function setupAdminContentUploadForm() {
+            const adminUploadForm = document.getElementById('admin-upload-form');
+            const fileInput = document.getElementById('contentFile');
+            const fileDropZoneText = document.getElementById('file-drop-zone-text');
+            const uploadProgressContainer = document.getElementById('upload-progress-container'); 
+            const progressBar = document.getElementById('progress-bar');
+            const submitButton = document.getElementById('admin-upload-submit-btn');
+            const loader = document.getElementById('admin-upload-loader');
+            const fileDropZone = document.getElementById('file-drop-zone');
+
+
+            fileDropZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) fileDropZoneText.textContent = `File: ${e.target.files[0].name}`;
+                else fileDropZoneText.textContent = 'Click or drag ZIP file here';
+            });
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => fileDropZone.addEventListener(eventName, e => {e.preventDefault(); e.stopPropagation();}, false));
+
+
+            adminUploadForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                console.log("Admin upload form submitted.");
+                const title = event.target.contentTitle.value;
+                const file = fileInput.files[0];
+
+                if (!currentUserId) { alertModal("Please log in to upload content."); return; }
+                if (!title) { alertModal("Title is required."); return; }
+                if (!file) { alertModal("Please select a ZIP file to upload."); return; }
+                
+                console.log("Admin Upload: Showing loader, disabling button, showing progress bar.");
+                loader.classList.remove('hidden');
+                submitButton.disabled = true;
+                uploadProgressContainer.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+
+                // Simulate progress
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 10;
+                    if (progress <= 100) {
+                        progressBar.style.width = progress + '%';
+                        progressBar.textContent = progress + '%';
+                        console.log('Admin Upload: Progress:', progress + '%');
+                    } else {
+                        clearInterval(interval);
+                        console.log("Admin Upload: Simulated upload complete.");
+                        alertModal("Content upload successful!", "Success");
+                        adminUploadForm.reset(); 
+                        fileDropZoneText.textContent = 'Click or drag ZIP file here';
+                        fileInput.value = ''; 
+                        
+                        console.log("Admin Upload: Resetting UI.");
+                        loader.classList.add('hidden');
+                        submitButton.disabled = false;
+                        uploadProgressContainer.classList.add('hidden');
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = '0%';
+                    }
+                }, 150); 
+            });
+        }
+        
+        function loadLibraryContent() {
+            console.log("loadLibraryContent called. currentUserId:", currentUserId);
+            const libraryContentDiv = document.getElementById('library-content-list');
+            if (!libraryContentDiv) { console.error("library-content-list element not found."); return; }
+
+            if (!currentUserId) {
+                libraryContentDiv.innerHTML = `
+                    <p class="text-red-500 col-span-full text-center py-10">Please log in to view content.</p>
+                    <button id="go-to-login-lib-btn-final" class="mt-4 mx-auto block bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md col-span-full">
+                        Go to Login
+                    </button>`;
+                const loginBtn = document.getElementById('go-to-login-lib-btn-final');
+                if (loginBtn) loginBtn.addEventListener('click', () => showPage('login-page'));
+                return;
+            }
+            
+            console.log("loadLibraryContent: Displaying fake library entries.");
+            let contentHTML = '';
+            fakeLibraryEntries.forEach((content) => { 
+                contentHTML += `
+                    <div class="bg-white p-6 rounded-lg shadow-lg mb-4 flex flex-col border border-gray-200 hover:shadow-xl transition-shadow">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2 truncate" title="${content.title}">${content.title}</h3>
+                        <p class="text-gray-600 text-sm mb-4 flex-grow min-h-[60px]">${content.description || 'No description.'}</p>
+                        <a href="${content.downloadUrl}" target="_blank" download="${content.fileName || 'download.zip'}" class="mt-auto inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md text-center text-sm transition-colors duration-300">
+                            Download: ${content.fileName || 'File'}
+                        </a>
+                        <p class="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100">Access: ${content.accessLevel}</p>
+                    </div>
+                `;
+            });
+            libraryContentDiv.innerHTML = contentHTML || '<p class="text-gray-500 col-span-full text-center py-10">No content configured.</p>';
+        }
+        
+        function alertModal(message, type = "error") {
+            const modal = document.getElementById('alert-modal');
+            const modalMessage = document.getElementById('alert-modal-message');
+            const modalTitle = document.getElementById('alert-modal-title');
+            if (!modal || !modalMessage || !modalTitle) {
+                console.error("Alert modal elements not found. Standard alert:", message);
+                alert(message); return;
+            }
+            modalMessage.textContent = message;
+            modalTitle.textContent = type === "success" ? "Success!" : "Alert";
+            modalTitle.className = `text-xl font-bold mb-4 ${type === "success" ? "text-green-600" : "text-red-600"}`;
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            const modalCloseButton = document.getElementById('alert-modal-close');
+            if (modalCloseButton) modalCloseButton.onclick = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+            modal.onclick = (event) => { if (event.target === modal) { modal.classList.add('hidden'); modal.classList.remove('flex');}};
+        }
+        
+        let libraryPageElement; 
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log("DOM Content Loaded. Initializing Simplifinance App.");
+            if (!auth || !db ) { 
+                console.error("DOMContentLoaded: Firebase services not properly initialized. Aborting setup.");
+                alertModal("CRITICAL ERROR: Firebase services failed. Refresh."); return; 
+            }
+            
+            libraryPageElement = document.getElementById('library-page');
+            onAuthStateChanged(auth, (user) => { updateAuthStateUI(user); });
+            
+            setupNavigation();
+            setupSubscriptionPlanSelection();
+            setupSignupBillingForm();
+            setupLoginForm();
+            setupAdminContentUploadForm(); 
+            
+            if (!auth.currentUser) showPage('home-page'); 
+            
+            if(libraryPageElement) { 
+                const observer = new MutationObserver((mutationsList) => {
+                    for(const mutation of mutationsList) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            if (!libraryPageElement.classList.contains('hidden') && currentUserId) { 
+                                loadLibraryContent();
+                            }
+                        }
+                    }
+                });
+                observer.observe(libraryPageElement, { attributes: true });
+            }
+            console.log("Simplifinance App Initialized.");
+        });
+
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        .page-section { min-height: calc(100vh - 120px); }
+        .loader {
+            border: 4px solid #f3f3f3; 
+            border-top: 4px solid #1E7976; /* Teal loader */
+            border-radius: 50%; width: 24px; height: 24px;
+            animation: spin 1s linear infinite; display: inline-block; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .plan-feature-icon { width: 1.25rem; height: 1.25rem; }
+        .tick-icon { color: #10B981; } .minus-icon { color: #9CA3AF; }
+        .plan-card { background-color: #FFFFFF; } .plan-header { background-color: #F3F4F6; } 
+        #file-drop-zone { border: 2px dashed #CBD5E0; border-radius: 0.5rem; padding: 2rem; text-align: center; cursor: pointer; background-color: #F9FAFB; transition: background-color 0.2s ease-in-out; }
+        #file-drop-zone:hover { background-color: #E5E7EB; }
+        #file-drop-zone .plus-icon { font-size: 2.5rem; line-height: 1; color: #9CA3AF; margin-bottom: 0.5rem; }
+        #upload-progress-container { margin-top: 0.5rem; width: 100%; background-color: #E5E7EB; border-radius: 0.25rem; overflow: hidden; }
+        #progress-bar { height: 20px; background-color: #10B981; width: 0%; transition: width 0.15s ease-out; color: white; text-align: center; font-size: 0.75rem; line-height: 20px; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Header / Navigation -->
+    <header class="bg-gradient-to-r from-white via-teal-50 to-white shadow-md sticky top-0 z-50">
+      <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+          <!-- Logo Circle -->
+          <div class="w-10 h-10 rounded-full border-2 border-teal-700 flex items-center justify-center font-bold text-teal-700 text-lg bg-white shadow-sm">
+            SF
+          </div>
+          <span class="text-2xl font-bold text-gray-700 tracking-tight">Simplifinance</span>
+        </div>
+        <div class="flex items-center space-x-2 md:space-x-4">
+          <a href="#" id="nav-home" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Home</a>
+          <a href="#" id="nav-about" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">About Us</a>
+          <a href="#" id="nav-services" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Services</a>
+          <a href="#" id="nav-educational-library" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Educational Library</a>
+          <a href="#" id="login-nav-item" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Login</a>
+          <a href="#" id="library-nav-item" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition hidden">Library</a>
+          <a href="#" id="admin-nav-item" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition hidden">Admin</a>
+          <div id="logout-nav-item" class="hidden">
+            <button id="logout-button" class="px-3 py-2 rounded-md text-base font-semibold text-white bg-red-500 hover:bg-red-600">Logout</button>
+          </div>
+          <!-- Schedule a Demo Button -->
+          <a href="https://calendly.com/jack-simplifinancellc/simplifinance-demo" target="_blank" rel="noopener" class="ml-2 px-5 py-2 rounded-full bg-teal-700 text-white font-bold text-base shadow-md hover:bg-teal-800 transition hidden sm:inline-block">SCHEDULE A DEMO</a>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="container mx-auto px-4 sm:px-6 py-8">
+
+        <!-- Home Page -->
+        <section id="home-page" class="page-section">
+            <!-- HERO SECTION ADDED BELOW -->
+            <div class="relative bg-gradient-to-r from-teal-600 to-teal-400 rounded-xl shadow-lg mb-12 overflow-hidden">
+              <div class="absolute inset-0 bg-black bg-opacity-20"></div>
+              <div class="relative z-10 px-8 py-16 text-center text-white">
+                <h1 class="text-4xl sm:text-5xl font-extrabold mb-4 drop-shadow-lg">Deliver Clarity.<br>Build Client Confidence.</h1>
+                <p class="text-lg sm:text-2xl font-medium mb-8 drop-shadow">Empowering Advisors to Educate Clients Through Clear Communication</p>
+                <a href="#" class="inline-block bg-white text-teal-700 font-bold px-8 py-3 rounded-full shadow-lg hover:bg-teal-50 transition text-lg">Learn More</a>
+              </div>
+            </div>
+            <div class="text-center mb-12">
+                <h1 class="text-3xl sm:text-4xl font-bold text-gray-700 mb-3">Our Subscription Plans</h1>
+            </div>
+            <div class="flex flex-col lg:flex-row justify-center items-start gap-8">
+                <div class="hidden lg:block w-full lg:w-1/4 pt-20 pr-4"> 
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3 invisible">Features</h3> 
+                    <ul class="space-y-5 text-sm text-gray-600">
+                        <li class="h-8 flex items-center">Access to Financial Content Library</li>
+                        <li class="h-8 flex items-center">Download Monthly Market Recaps</li>
+                        <li class="h-8 flex items-center">Request Custom Content</li>
+                        <li class="h-8 flex items-center">Whitelabel (Colors, Fonts, Logos, Disclosures)</li>
+                        <li class="h-8 flex items-center">Support</li>
+                        <li class="h-8 flex items-center">30-Day Money Back Guarantee</li>
+                        <li class="h-12 flex items-center font-semibold">Pricing (Month by Month)</li>
+                        <li class="h-12 flex items-center font-semibold">Pricing (Annual)</li>
+                    </ul>
+                </div>
+                <div class="w-full lg:w-auto flex flex-col sm:flex-row sm:justify-center lg:justify-start gap-6">
+                    <div class="plan-card p-6 rounded-lg shadow-lg w-full sm:w-2/5 lg:w-64 flex flex-col">
+                        <div class="plan-header p-4 -m-6 mb-6 rounded-t-lg">
+                             <h3 class="text-xl font-semibold text-gray-700 text-center">Essentials</h3>
+                        </div>
+                        <ul class="space-y-5 text-sm text-gray-700 mb-8 flex-grow">
+                            <li class="h-8 flex items-center justify-center"><svg class="tick-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="lg:hidden ml-2">Access to Library</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="tick-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="lg:hidden ml-2">Monthly Recaps</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="minus-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg><span class="lg:hidden ml-2">Custom Content</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="minus-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg><span class="lg:hidden ml-2">Whitelabel</span></li>
+                            <li class="h-8 flex items-center justify-center"><span class="text-center">Basic</span><span class="lg:hidden ml-2"> Support</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="minus-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg><span class="lg:hidden ml-2">Money Back Guarantee</span></li>
+                            <li class="h-12 flex items-center justify-center text-lg font-semibold text-gray-700">$99/Month</li>
+                            <li class="h-12 flex items-center justify-center text-lg font-semibold text-gray-700">$990/Year <span class="text-xs text-green-600 ml-1">(Save $200)</span></li>
+                        </ul>
+                        <button data-plan-name="Essentials Plan" data-plan-type="Monthly" data-plan-price="$99" data-plan-price-display="$99/Month" class="select-plan-btn w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 px-6 rounded-md transition-colors duration-300 mt-auto">GET STARTED (Monthly)</button>
+                        <button data-plan-name="Essentials Plan" data-plan-type="Annual" data-plan-price="$990" data-plan-price-display="$990/Year" class="select-plan-btn w-full border border-teal-600 text-teal-600 hover:bg-teal-50 font-semibold py-2.5 px-6 rounded-md transition-colors duration-300 mt-2">CHOOSE ANNUAL</button>
+                    </div>
+                    <div class="plan-card p-6 rounded-lg shadow-lg w-full sm:w-2/5 lg:w-64 border-2 border-teal-600 flex flex-col">
+                        <div class="plan-header p-4 -m-6 mb-6 rounded-t-lg relative">
+                            <h3 class="text-xl font-semibold text-gray-700 text-center">Premium</h3>
+                            <span class="absolute top-0 right-0 -mt-3 mr-3 bg-yellow-400 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">Most Popular</span>
+                        </div>
+                        <ul class="space-y-5 text-sm text-gray-700 mb-8 flex-grow">
+                            <li class="h-8 flex items-center justify-center"><svg class="tick-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="lg:hidden ml-2">Access to Library</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="tick-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="lg:hidden ml-2">Monthly Recaps</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="tick-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="lg:hidden ml-2">Custom Content</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="tick-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="lg:hidden ml-2">Whitelabel</span></li>
+                            <li class="h-8 flex items-center justify-center"><span class="text-center">Premium</span><span class="lg:hidden ml-2"> Support</span></li>
+                            <li class="h-8 flex items-center justify-center"><svg class="tick-icon plan-feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="lg:hidden ml-2">Money Back Guarantee</span></li>
+                            <li class="h-12 flex items-center justify-center text-lg font-semibold text-gray-700">$199/Month</li>
+                            <li class="h-12 flex items-center justify-center text-lg font-semibold text-gray-700">$1990/Year <span class="text-xs text-green-600 ml-1">(Save $400)</span></li>
+                        </ul>
+                        <button data-plan-name="Premium Plan" data-plan-type="Monthly" data-plan-price="$199" data-plan-price-display="$199/Month" class="select-plan-btn w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 px-6 rounded-md transition-colors duration-300 mt-auto">GET STARTED (Monthly)</button>
+                         <button data-plan-name="Premium Plan" data-plan-type="Annual" data-plan-price="$1990" data-plan-price-display="$1990/Year" class="select-plan-btn w-full border border-teal-600 text-teal-600 hover:bg-teal-50 font-semibold py-2.5 px-6 rounded-md transition-colors duration-300 mt-2">CHOOSE ANNUAL</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sign Up & Billing Page (Combined) -->
+        <section id="signup-billing-page" class="page-section hidden">
+            <div class="max-w-lg mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-8">
+                <h2 class="text-2xl font-bold text-center text-gray-700 mb-6">Complete Your Sign Up</h2>
+                <div id="plan-details-checkout" class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                    <p class="text-gray-500">Loading selected plan...</p>
+                </div>
+                <form id="signup-billing-form" class="space-y-5">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Account Information</h3>
+                        <div>
+                            <label for="email-signup" class="block text-sm font-medium text-gray-600">Email address</label>
+                            <input type="email" name="email" id="email-signup" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="you@example.com">
+                        </div>
+                        <div>
+                            <label for="password-signup" class="block text-sm font-medium text-gray-600 mt-3">Password</label>
+                            <input type="password" name="password" id="password-signup" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="••••••••">
+                            <p class="mt-1 text-xs text-gray-500">Password should be at least 6 characters.</p> 
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3 mt-6">Billing Information )</h3>
+                        <p class="text-xs text-gray-500 mb-3"></p>
+                        <div>
+                            <label for="cardName" class="block text-sm font-medium text-gray-600">Name on Card</label>
+                            <input type="text" name="cardName" id="cardName" class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="Full Name">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                            <div class="md:col-span-2">
+                                <label for="cardNumber" class="block text-sm font-medium text-gray-600">Card Number</label>
+                                <input type="text" name="cardNumber" id="cardNumber" class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="•••• •••• •••• ••••">
+                            </div>
+                            <div>
+                                <label for="expiry" class="block text-sm font-medium text-gray-600">Expiry</label>
+                                <input type="text" name="expiry" id="expiry" class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="MM/YY">
+                            </div>
+                            <div class="md:col-span-1">
+                                <label for="cvv" class="block text-sm font-medium text-gray-600">CVV</label>
+                                <input type="text" name="cvv" id="cvv" class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="•••">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-3">
+                        <button type="submit" id="signup-billing-submit-btn" class="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-md shadow-md transition-colors duration-300 text-base">
+                            <span class="loader hidden mr-2" id="signup-billing-loader"></span>
+                            Create Account & Activate Subscription
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Login Page -->
+        <section id="login-page" class="page-section hidden">
+            <div class="max-w-md mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-10">
+                <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Login to Simplifinance</h2>
+                <form id="login-form" class="space-y-5">
+                    <div>
+                        <label for="email-login" class="block text-sm font-medium text-gray-600">Email address</label>
+                        <input type="email" name="email" id="email-login" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label for="password-login" class="block text-sm font-medium text-gray-600">Password</label>
+                        <input type="password" name="password" id="password-login" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm" placeholder="••••••••">
+                    </div>
+                    <div>
+                        <button type="submit" id="login-submit-btn" class="w-full flex items-center justify-center bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-md shadow-md transition-colors duration-300 text-base">
+                             <span class="loader hidden mr-2" id="login-loader"></span>
+                            Login
+                        </button>
+                    </div>
+                </form>
+                 <p class="mt-6 text-center text-sm text-gray-500">
+                    Don't have an account? <a href="index.html" class="font-medium text-teal-600 hover:text-teal-500">Sign up for a plan.</a>
+                </p>
+            </div>
+        </section>
+
+        <!-- Educational Library Page (Gated Content) -->
+        <section id="library-page" class="page-section hidden">
+            <div class="text-center mb-10">
+                <h1 class="text-3xl font-bold text-gray-700 mb-3">Educational Library</h1>
+                <p class="text-lg text-gray-500">Welcome! Here's your exclusive content.</p>
+            </div>
+            <div id="library-content-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <p class="text-gray-500 col-span-full text-center py-10">Loading content or please log in...</p>
+            </div>
+        </section>
+
+        <!-- Admin Page (Content Upload) -->
+        <section id="admin-page" class="page-section hidden">
+            <div class="max-w-lg mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-10">
+                <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Admin - Upload Content</h2>
+                <form id="admin-upload-form" class="space-y-5">
+                    <div>
+                        <label for="contentTitle" class="block text-sm font-medium text-gray-600">Content Title</label>
+                        <input type="text" name="contentTitle" id="contentTitle" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500">
+                    </div>
+                    <div>
+                        <label for="contentDescription" class="block text-sm font-medium text-gray-600">Description</label>
+                        <textarea name="contentDescription" id="contentDescription" rows="3" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500"></textarea>
+                    </div>
+                    <div>
+                        <label for="contentFile" class="block text-sm font-medium text-gray-600 mb-1">Content File (ZIP)</label>
+                        <div id="file-drop-zone">
+                            <input type="file" name="contentFile" id="contentFile" accept=".zip,application/zip,application/x-zip-compressed" class="hidden">
+                            <div class="plus-icon">+</div>
+                            <p id="file-drop-zone-text" class="text-sm text-gray-500">Click or drag ZIP file here</p>
+                        </div>
+                        <div id="upload-progress-container" class="hidden">
+                            <div id="progress-bar">0%</div>
+                        </div>
+                    </div>
+                     <div>
+                        <label for="accessLevel" class="block text-sm font-medium text-gray-600">Access Level</label>
+                        <select name="accessLevel" id="accessLevel" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 bg-white">
+                            <option value="essentials">Essentials</option> 
+                            <option value="premium">Premium</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="submit" id="admin-upload-submit-btn" class="w-full flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-md shadow-md transition-colors duration-300 text-base">
+                            <span class="loader hidden mr-2" id="admin-upload-loader"></span>
+                            Upload Content
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-700 text-gray-300 text-center p-6 mt-12">
+        <p>&copy; <span id="currentYear"></span> Simplifinance. All rights reserved. (Mock Concept)</p>
+        <script>document.getElementById('currentYear').textContent = new Date().getFullYear();</script>
+    </footer>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden z-50 p-4">
+        <div class="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 id="alert-modal-title" class="text-xl font-bold text-red-600 mb-4">Alert</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p id="alert-modal-message" class="text-base text-gray-700"></p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="alert-modal-close" class="px-4 py-2 bg-teal-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
