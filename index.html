@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simplifinance - Mockup</title>
+    <title>SimpliFinance - Mockup</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
@@ -168,7 +168,7 @@
                     }
                 }
             }
-
+            
             // --- Event Listener Setup ---
             function setupNavigation() {
                 document.getElementById('nav-home-logo').addEventListener('click', (e) => { e.preventDefault(); showPage('home-page'); });
@@ -192,7 +192,7 @@
                         selectedPlan = {
                             name: this.dataset.planName, 
                             type: this.dataset.planType,
-                            price: this.dataset.planPrice.replace('$', ''), // Store price as a number string
+                            price: this.dataset.planPrice,
                             priceDisplay: this.dataset.planPriceDisplay 
                         };
                         const planDetailsCheckout = document.getElementById('plan-details-checkout');
@@ -209,7 +209,6 @@
                 const submitButton = document.getElementById('signup-billing-submit-btn');
                 const loader = document.getElementById('signup-billing-loader');
 
-                // Initialize the callable function once
                 const functions = getFunctions(getApp());
                 const createSubscription = httpsCallable(functions, 'createSubscription');
 
@@ -233,12 +232,10 @@
                             planPrice: selectedPlan.price
                         };
                         
-                        // Call our secure backend function
                         const result = await createSubscription(functionData);
 
                         if (result.data.status === 'success') {
                             alertModal(`Test subscription created! Subscription ID: ${result.data.subscriptionId}`, "Success");
-                            // Next step will be to automatically log the user in
                         } else {
                             alertModal(result.data.message || "An unknown error occurred.");
                         }
@@ -284,7 +281,7 @@
       <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 rounded-full border-2 border-teal-700 flex items-center justify-center font-bold text-teal-700 text-lg bg-white shadow-sm">SF</div>
-          <a href="#" id="nav-home-logo" class="text-2xl font-bold text-gray-700 tracking-tight">Simplifinance</a>
+          <a href="#" id="nav-home-logo" class="text-2xl font-bold text-gray-700 tracking-tight">SimpliFinance</a>
         </div>
         <div class="flex items-center space-x-2 md:space-x-4">
           <a href="#" id="nav-home" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition">Home</a>
@@ -421,7 +418,7 @@
 
         <section id="login-page" class="page-section hidden">
             <div class="max-w-md mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-10">
-                <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Login to Simplifinance</h2>
+                <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Login to SimpliFinance</h2>
                 <form id="login-form" class="space-y-5">
                     <div>
                         <label for="email-login" class="block text-sm font-medium text-gray-600">Email address</label>
@@ -495,7 +492,7 @@
     </main>
 
     <footer class="bg-gray-700 text-gray-300 text-center p-6 mt-12">
-        <p>&copy; <span id="currentYear">2025</span> Simplifinance. All rights reserved. (Mock Concept)</p>
+        <p>&copy; <span id="currentYear">2025</span> SimpliFinance. All rights reserved. (Mock Concept)</p>
         <script>document.getElementById('currentYear').textContent = new Date().getFullYear();</script>
     </footer>
 
