@@ -8,7 +8,7 @@ admin.initializeApp();
 const { APIContracts, Constants, APIControllers } = authorizenet;
 
 exports.createSubscription = functions.https.onCall(async (data, context) => {
-    functions.logger.info(`Starting subscription request for: ${data.email}`);
+    functions.logger.info(`Starting subscription request for: ${data.email} with plan: ${data.planName} and price: ${data.planPrice}`);
 
     const apiLoginId = process.env.AUTHORIZENET_API_LOGIN_ID;
     const transactionKey = process.env.AUTHORIZENET_TRANSACTION_KEY;
@@ -44,7 +44,11 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
     const arbSubscription = new APIContracts.ARBSubscriptionType();
     arbSubscription.setName(data.planName);
     arbSubscription.setPaymentSchedule(paymentSchedule);
-    arbSubscription.setAmount(data.planPrice);
+    
+    // THIS IS THE CORRECTED LINE
+    const price = data.planPrice.toString().replace('$', '');
+arbSubscription.setAmount(price);
+
     arbSubscription.setPayment(payment);
     arbSubscription.setBillTo(billTo);
 
@@ -56,43 +60,37 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
     ctrl.setEnvironment(Constants.endpoint.sandbox);
 
     return new Promise((resolve, reject) => {
-        ctrl.execute(async function () { // Added async here
+        ctrl.execute(async function () {
             const apiResponse = ctrl.getResponse();
             const response = new APIContracts.ARBCreateSubscriptionResponse(apiResponse);
 
-            if (response != null) {
-                if (response.getMessages().getResultCode() === APIContracts.MessageTypeEnum.OK) {
-                    const subscriptionId = response.getSubscriptionId();
-                    functions.logger.info(`Successfully created Auth.Net subscription ID: ${subscriptionId}`);
+            if (response != null && response.getMessages().getResultCode() === APIContracts.MessageTypeEnum.OK) {
+                const subscriptionId = response.getSubscriptionId();
+                functions.logger.info(`Successfully created Auth.Net subscription ID: ${subscriptionId}`);
 
-                    try {
-                        const userRecord = await admin.auth().createUser({ email: data.email, password: data.password });
-                        functions.logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
+                try {
+                    const userRecord = await admin.auth().createUser({ email: data.email, password: data.password });
+                    functions.logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
 
-                        const userDocRef = admin.firestore().collection("users").doc(userRecord.uid);
-                        await userDocRef.set({
-                            email: data.email,
-                            planName: data.planName,
-                            authNetSubscriptionId: subscriptionId,
-                            status: "active"
-                        });
-                        functions.logger.info("Successfully saved user details to Firestore.");
-                        
-                        resolve({ status: 'success', userId: userRecord.uid });
-
-                    } catch (error) {
-                        functions.logger.error("Error creating Firebase user or saving to Firestore:", error);
-                        reject(new functions.https.HttpsError('internal', 'Payment succeeded, but failed to create user account.'));
-                    }
-                } else {
-                    const message = response.getMessages().getMessage()[0];
-                    const errorCode = message.getCode();
-                    const errorText = message.getText();
-                    functions.logger.error(`Authorize.Net rejected transaction: ${errorCode} - ${errorText}`);
-                    reject(new functions.https.HttpsError('aborted', `Payment failed: ${errorText}`));
+                    const userDocRef = admin.firestore().collection("users").doc(userRecord.uid);
+                    await userDocRef.set({
+                        email: data.email,
+                        planName: data.planName,
+                        authNetSubscriptionId: subscriptionId,
+                        status: "active"
+                    });
+                    
+                    resolve({ status: 'success', userId: userRecord.uid });
+                } catch (error) {
+                    functions.logger.error("Error creating Firebase user or saving to Firestore:", error);
+                    reject(new functions.https.HttpsError('internal', 'Payment succeeded, but failed to create user account.'));
                 }
             } else {
-                reject(new functions.https.HttpsError('internal', 'Received a null response from Authorize.Net.'));
+                const message = response.getMessages().getMessage()[0];
+                const errorCode = message.getCode();
+                const errorText = message.getText();
+                functions.logger.error(`Authorize.Net rejected transaction: ${errorCode} - ${errorText}`);
+                reject(new functions.https.HttpsError('aborted', `Payment failed: ${errorText}`));
             }
         });
     });
