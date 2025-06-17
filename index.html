@@ -128,46 +128,73 @@
             }
 
             async function updateAuthStateUI(user) {
-                const userGreeting = document.getElementById('user-greeting');
-                const navElements = {
-                    login: document.getElementById('login-nav-item'),
-                    logout: document.getElementById('logout-nav-item'),
-                    library: document.getElementById('library-nav-item'),
-                    admin: document.getElementById('admin-nav-item')
-                };
+    const userGreeting = document.getElementById('user-greeting');
+    const navElements = {
+        login: document.getElementById('login-nav-item'),
+        logout: document.getElementById('logout-nav-item'),
+        library: document.getElementById('library-nav-item'),
+        admin: document.getElementById('admin-nav-item')
+    };
 
-                if (user) {
-                    currentUserId = user.uid;
-                    currentUserPlan = await fetchUserSubscription(user.uid);
-                    isActualAdmin = (user.email === ADMIN_EMAIL);
+    if (user) {
+        currentUserId = user.uid;
+        currentUserPlan = await fetchUserSubscription(user.uid);
+        isActualAdmin = (user.email === ADMIN_EMAIL);
 
-                    userGreeting.textContent = `Welcome, ${user.email || 'User'}! (${currentUserPlan || 'No Plan'})`;
-                    userGreeting.classList.remove('hidden');
-                    navElements.login.classList.add('hidden');
-                    navElements.logout.classList.remove('hidden');
-                    navElements.library.classList.remove('hidden');
-                    navElements.admin.classList.toggle('hidden', !isActualAdmin);
+        userGreeting.textContent = `Welcome, ${user.email}!`;
+        userGreeting.classList.remove('hidden');
+        navElements.login.classList.add('hidden');
+        navElements.logout.classList.remove('hidden');
+        navElements.library.classList.remove('hidden');
+        navElements.admin.classList.toggle('hidden', !isActualAdmin);
 
-                    const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
-                    if (['login-page', 'signup-billing-page'].includes(currentPageId)) {
-                        showPage('library-page'); 
-                    }
-                } else {
-                    currentUserId = null;
-                    isActualAdmin = false;
-                    currentUserPlan = null;
-                    userGreeting.classList.add('hidden');
-                    navElements.login.classList.remove('hidden');
-                    navElements.logout.classList.add('hidden');
-                    navElements.library.classList.add('hidden');
-                    navElements.admin.classList.add('hidden');
-                    
-                    const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
-                    if (['library-page', 'admin-page', 'signup-billing-page'].includes(currentPageId)) {
-                        showPage('home-page');
-                    }
-                }
-            }
+    } else { // This "else" block is now corrected
+        currentUserId = null;
+        isActualAdmin = false;
+        currentUserPlan = null;
+        
+        userGreeting.classList.add('hidden'); // Hide the greeting
+        navElements.logout.classList.add('hidden');
+        navElements.library.classList.add('hidden');
+        navElements.admin.classList.add('hidden');
+        navElements.login.classList.remove('hidden'); // Show the login button
+        
+        // If on a protected page, redirect to home
+        const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
+        if (['library-page', 'admin-page'].includes(currentPageId)) {
+            showPage('home-page');
+        }
+    }
+}
+    if (user) {
+        currentUserId = user.uid;
+        currentUserPlan = await fetchUserSubscription(user.uid);
+        isActualAdmin = (user.email === ADMIN_EMAIL);
+
+        userGreeting.textContent = `Welcome, ${user.email}!`;
+        userGreeting.classList.remove('hidden');
+        navElements.login.classList.add('hidden'); // This correctly hides the login button
+        navElements.logout.classList.remove('hidden');
+        navElements.library.classList.remove('hidden');
+        navElements.admin.classList.toggle('hidden', !isActualAdmin);
+
+        const currentPageId = document.querySelector('.page-section:not(.hidden)')?.id;
+        if (['login-page', 'signup-billing-page'].includes(currentPageId)) {
+            showPage('library-page'); 
+        }
+    } else { // No user
+        currentUserId = null;
+        isActualAdmin = false;
+        currentUserPlan = null;
+        userGreeting.classList.add('hidden');
+        navElements.logout.classList.add('hidden');
+        navElements.library.classList.add('hidden');
+        navElements.admin.classList.add('hidden');
+        navElements.login.classList.remove('hidden'); // This correctly shows the login button
+        
+        showPage('home-page');
+    }
+}
             
             // --- Event Listener Setup ---
             function setupNavigation() {

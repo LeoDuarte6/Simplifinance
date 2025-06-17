@@ -55,50 +55,45 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
     const ctrl = new APIControllers.ARBCreateSubscriptionController(createRequest.getJSON());
     ctrl.setEnvironment(Constants.endpoint.sandbox);
 
-    const response = await new Promise((resolve, reject) => {
-        ctrl.execute(function () {
+    return new Promise((resolve, reject) => {
+        ctrl.execute(async function () { // Added async here
             const apiResponse = ctrl.getResponse();
             const response = new APIContracts.ARBCreateSubscriptionResponse(apiResponse);
-            if (response != null && response.getMessages().getResultCode() === APIContracts.MessageTypeEnum.OK) {
-                resolve(response);
+
+            if (response != null) {
+                if (response.getMessages().getResultCode() === APIContracts.MessageTypeEnum.OK) {
+                    const subscriptionId = response.getSubscriptionId();
+                    functions.logger.info(`Successfully created Auth.Net subscription ID: ${subscriptionId}`);
+
+                    try {
+                        const userRecord = await admin.auth().createUser({ email: data.email, password: data.password });
+                        functions.logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
+
+                        const userDocRef = admin.firestore().collection("users").doc(userRecord.uid);
+                        await userDocRef.set({
+                            email: data.email,
+                            planName: data.planName,
+                            authNetSubscriptionId: subscriptionId,
+                            status: "active"
+                        });
+                        functions.logger.info("Successfully saved user details to Firestore.");
+                        
+                        resolve({ status: 'success', userId: userRecord.uid });
+
+                    } catch (error) {
+                        functions.logger.error("Error creating Firebase user or saving to Firestore:", error);
+                        reject(new functions.https.HttpsError('internal', 'Payment succeeded, but failed to create user account.'));
+                    }
+                } else {
+                    const message = response.getMessages().getMessage()[0];
+                    const errorCode = message.getCode();
+                    const errorText = message.getText();
+                    functions.logger.error(`Authorize.Net rejected transaction: ${errorCode} - ${errorText}`);
+                    reject(new functions.https.HttpsError('aborted', `Payment failed: ${errorText}`));
+                }
             } else {
-                reject(response);
+                reject(new functions.https.HttpsError('internal', 'Received a null response from Authorize.Net.'));
             }
         });
     });
-
-    if (response.getMessages().getResultCode() === APIContracts.MessageTypeEnum.OK) {
-        const subscriptionId = response.getSubscriptionId();
-        functions.logger.info(`Successfully created Auth.Net subscription ID: ${subscriptionId}`);
-
-        try {
-            const userRecord = await admin.auth().createUser({
-                email: data.email,
-                password: data.password,
-            });
-            functions.logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
-
-            const userDocRef = admin.firestore().collection("users").doc(userRecord.uid);
-            await userDocRef.set({
-                email: data.email,
-                planName: data.planName,
-                authNetSubscriptionId: subscriptionId,
-                status: "active"
-            });
-            functions.logger.info("Successfully saved user details to Firestore.");
-            
-            return { status: 'success', userId: userRecord.uid };
-
-        } catch (error) {
-            functions.logger.error("Error creating Firebase user or saving to Firestore:", error);
-            // TODO: Logic to cancel the Authorize.Net subscription if this part fails.
-            throw new functions.https.HttpsError('internal', 'Payment succeeded, but failed to create user account.');
-        }
-    } else {
-        const message = response.getMessages().getMessage()[0];
-        const errorCode = message.getCode();
-        const errorText = message.getText();
-        functions.logger.error(`Authorize.Net rejected transaction: ${errorCode} - ${errorText}`);
-        throw new functions.https.HttpsError('aborted', `Payment failed: ${errorText}`);
-    }
 });
