@@ -1,96 +1,94 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const authorizenet = require("authorizenet");
+require("dotenv").config(); 
 
-require("dotenv").config();
 admin.initializeApp();
 
 const { APIContracts, Constants, APIControllers } = authorizenet;
+const authNetEnvironment = Constants.endpoint.sandbox;
 
 exports.createSubscription = functions.https.onCall(async (data, context) => {
-    functions.logger.info(`Starting subscription request for: ${data.email} with plan: ${data.planName} and price: ${data.planPrice}`);
+    functions.logger.info("--- New Request Received ---", { email: data.email, plan: data.planName });
+
+    if (!data || !data.email || !data.planPrice || !data.paymentDetails) {
+        throw new functions.https.HttpsError('invalid-argument', 'Request is missing required data.');
+    }
+    
+    const { email, password, planName, planPrice, paymentDetails } = data;
+    const { cardNumber, expiryDate, cardCode } = paymentDetails;
+
+    if (!cardNumber || !expiryDate || !cardCode) {
+         throw new functions.https.HttpsError('invalid-argument', 'Request is missing payment details.');
+    }
 
     const apiLoginId = process.env.AUTHORIZENET_API_LOGIN_ID;
     const transactionKey = process.env.AUTHORIZENET_TRANSACTION_KEY;
 
     if (!apiLoginId || !transactionKey) {
-        throw new functions.https.HttpsError('internal', 'The server is not configured for payments.');
+        functions.logger.error("Authorize.Net credentials not found in .env file.");
+        throw new functions.https.HttpsError('internal', 'Server payment configuration error.');
     }
 
     const merchantAuthenticationType = new APIContracts.MerchantAuthenticationType();
     merchantAuthenticationType.setName(apiLoginId);
     merchantAuthenticationType.setTransactionKey(transactionKey);
 
+    const paymentSchedule = new APIContracts.PaymentScheduleType();
     const interval = new APIContracts.PaymentScheduleType.Interval();
     interval.setLength(1);
     interval.setUnit(APIContracts.ARBSubscriptionUnitEnum.MONTHS);
-
-    const paymentSchedule = new APIContracts.PaymentScheduleType();
     paymentSchedule.setInterval(interval);
     paymentSchedule.setStartDate(new Date().toISOString().substring(0, 10));
     paymentSchedule.setTotalOccurrences(9999);
 
     const creditCard = new APIContracts.CreditCardType();
-    creditCard.setCardNumber("4007000000027");
-    creditCard.setExpirationDate("2027-12");
+    creditCard.setCardNumber(cardNumber);
+    if (typeof expiryDate !== 'string' || !expiryDate.includes('/')) {
+        throw new functions.https.HttpsError('invalid-argument', `Invalid expiry date format. Use MM/YY.`);
+    }
+    const [month, year] = expiryDate.split('/');
+    creditCard.setExpirationDate(`20${year}-${month}`);
+    creditCard.setCardCode(cardCode);
 
     const payment = new APIContracts.PaymentType();
     payment.setCreditCard(creditCard);
 
-    const billTo = new APIContracts.NameAndAddressType();
-    billTo.setFirstName("John");
-    billTo.setLastName("Doe");
-
     const arbSubscription = new APIContracts.ARBSubscriptionType();
-    arbSubscription.setName(data.planName);
+    arbSubscription.setName(planName);
     arbSubscription.setPaymentSchedule(paymentSchedule);
-    
-    // THIS IS THE CORRECTED LINE
-    const price = data.planPrice.toString().replace('$', '');
-arbSubscription.setAmount(price);
-
+    arbSubscription.setAmount(planPrice);
     arbSubscription.setPayment(payment);
-    arbSubscription.setBillTo(billTo);
 
     const createRequest = new APIContracts.ARBCreateSubscriptionRequest();
     createRequest.setMerchantAuthentication(merchantAuthenticationType);
     createRequest.setSubscription(arbSubscription);
 
     const ctrl = new APIControllers.ARBCreateSubscriptionController(createRequest.getJSON());
-    ctrl.setEnvironment(Constants.endpoint.sandbox);
+    ctrl.setEnvironment(authNetEnvironment);
 
     return new Promise((resolve, reject) => {
-        ctrl.execute(async function () {
+        ctrl.execute(async () => {
             const apiResponse = ctrl.getResponse();
             const response = new APIContracts.ARBCreateSubscriptionResponse(apiResponse);
 
             if (response != null && response.getMessages().getResultCode() === APIContracts.MessageTypeEnum.OK) {
                 const subscriptionId = response.getSubscriptionId();
-                functions.logger.info(`Successfully created Auth.Net subscription ID: ${subscriptionId}`);
-
                 try {
-                    const userRecord = await admin.auth().createUser({ email: data.email, password: data.password });
-                    functions.logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
-
-                    const userDocRef = admin.firestore().collection("users").doc(userRecord.uid);
-                    await userDocRef.set({
-                        email: data.email,
-                        planName: data.planName,
-                        authNetSubscriptionId: subscriptionId,
-                        status: "active"
+                    const userRecord = await admin.auth().createUser({ email, password });
+                    await admin.firestore().collection("users").doc(userRecord.uid).set({
+                        email: email, planName: planName, authNetSubscriptionId: subscriptionId,
+                        subscriptionStatus: "active", createdAt: admin.firestore.FieldValue.serverTimestamp()
                     });
-                    
                     resolve({ status: 'success', userId: userRecord.uid });
                 } catch (error) {
-                    functions.logger.error("Error creating Firebase user or saving to Firestore:", error);
-                    reject(new functions.https.HttpsError('internal', 'Payment succeeded, but failed to create user account.'));
+                    functions.logger.error("Payment succeeded but user creation failed.", error);
+                    reject(new functions.https.HttpsError('internal', 'Payment succeeded, but user account creation failed.'));
                 }
             } else {
                 const message = response.getMessages().getMessage()[0];
-                const errorCode = message.getCode();
-                const errorText = message.getText();
-                functions.logger.error(`Authorize.Net rejected transaction: ${errorCode} - ${errorText}`);
-                reject(new functions.https.HttpsError('aborted', `Payment failed: ${errorText}`));
+                functions.logger.error(`Payment failed: ${message.getText()}`);
+                reject(new functions.https.HttpsError('aborted', `Payment failed: ${message.getText()}`));
             }
         });
     });
