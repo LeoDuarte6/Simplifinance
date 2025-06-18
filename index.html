@@ -3,129 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SimpliFinance</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
-        .page-section { display: none; } 
-        .page-section.active { display: block; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1E7976; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .plan-feature-icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
-        .tick-icon { color: #10B981; } .minus-icon { color: #9CA3AF; }
-    </style>
+    <title>Simplifinance - Wealth Education Platform</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-functions.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="text-gray-800">
-    <header class="bg-white shadow-md sticky top-0 z-50">
-        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-full border-2 border-teal-700 flex items-center justify-center font-bold text-teal-700 text-lg bg-white">SF</div>
-                <a href="#" id="nav-home-logo" class="text-2xl font-bold text-gray-700 tracking-tight">SimpliFinance</a>
+<body class="bg-gray-100 font-sans">
+    <nav class="bg-teal-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <a id="nav-home-logo" href="#" class="text-xl font-bold">Simplifinance</a>
+            <div>
+                <a id="nav-home" href="#" class="mr-4 hover:underline">Home</a>
+                <a id="nav-login" href="#" class="mr-4 hover:underline">Login/Sign Up</a>
+                <a id="nav-library" href="#" class="mr-4 hover:underline" style="display:none;">Library</a>
+                <a id="nav-admin" href="#" class="mr-4 hover:underline" style="display:none;">Admin</a>
+                <a id="nav-logout" href="#" class="hover:underline" style="display:none;">Logout</a>
             </div>
-            <div class="flex items-center space-x-2 md:space-x-4">
-                <a href="#" id="nav-home" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-gray-100">Home</a>
-                <a href="#" id="nav-login" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-gray-100">Login</a>
-                <a href="#" id="nav-library" class="px-3 py-2 rounded-md text-base font-semibold text-gray-700 hover:bg-gray-100" style="display: none;">Library</a>
-                <a href="#" id="nav-admin" class="px-3 py-2 rounded-md text-base font-semibold text-red-500 hover:bg-red-100" style="display: none;">Admin</a>
-                <button id="nav-logout" class="px-4 py-2 rounded-md text-base font-semibold text-white bg-red-500 hover:bg-red-600" style="display: none;">Logout</button>
-            </div>
-        </nav>
-    </header>
+        </div>
+    </nav>
 
-    <main class="container mx-auto px-4 sm:px-6 py-8">
-        <section id="page-home" class="page-section">
-            <div class="relative bg-gradient-to-r from-teal-600 to-teal-400 rounded-xl shadow-lg mb-12 overflow-hidden">
-              <div class="absolute inset-0 bg-black bg-opacity-20"></div>
-              <div class="relative z-10 px-8 py-16 text-center text-white">
-                <h1 class="text-4xl sm:text-5xl font-extrabold mb-4 drop-shadow-lg">Deliver Clarity.<br>Build Client Confidence.</h1>
-                <p class="text-lg sm:text-2xl font-medium mb-8 drop-shadow">Empowering Advisors to Educate Clients</p>
-              </div>
-            </div>
-            <div id="plans" class="text-center mb-12 pt-8"><h2 class="text-3xl sm:text-4xl font-bold text-gray-700 mb-3">Our Subscription Plans</h2></div>
-            <div class="flex flex-wrap justify-center gap-8">
-                <div class="p-6 rounded-lg shadow-lg bg-white w-full max-w-sm flex flex-col">
-                    <h3 class="text-2xl font-semibold text-gray-700 text-center">Essentials</h3>
-                    <p class="text-center text-4xl font-bold my-4">$99<span class="text-base font-medium">/mo</span></p>
-                    <ul class="space-y-2 text-gray-600 mb-6 flex-grow">
-                        <li class="flex items-center"><svg class="tick-icon plan-feature-icon mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Access to Content Library</li>
-                        <li class="flex items-center"><svg class="minus-icon plan-feature-icon mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>Request Custom Content</li>
-                    </ul>
-                    <button data-plan="Essentials" data-price="99" data-display="$99/mo" class="select-plan-btn w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-md mt-auto">Get Started</button>
+    <div class="container mx-auto p-6">
+        <div id="page-home" class="active">
+            <h1 class="text-3xl font-bold mb-4 text-teal-600">Welcome to Simplifinance</h1>
+            <p class="text-lg mb-6">Your path to financial literacy starts here. Choose a plan to get started!</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold mb-2">Essentials Plan</h2>
+                    <p class="text-gray-600 mb-4">$10/month - Core financial education resources.</p>
+                    <button class="select-plan-btn bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700" data-plan="Essentials" data-price="10" data-display="$10/month">Select Plan</button>
                 </div>
-                <div class="p-6 rounded-lg shadow-lg bg-white w-full max-w-sm flex flex-col border-2 border-teal-600">
-                    <h3 class="text-2xl font-semibold text-gray-700 text-center">Premium</h3>
-                    <p class="text-center text-4xl font-bold my-4">$199<span class="text-base font-medium">/mo</span></p>
-                    <ul class="space-y-2 text-gray-600 mb-6 flex-grow">
-                        <li class="flex items-center"><svg class="tick-icon plan-feature-icon mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Access to Content Library</li>
-                        <li class="flex items-center"><svg class="tick-icon plan-feature-icon mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Request Custom Content</li>
-                    </ul>
-                    <button data-plan="Premium" data-price="199" data-display="$199/mo" class="select-plan-btn w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-md mt-auto">Get Started</button>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold mb-2">Premium Plan</h2>
+                    <p class="text-gray-600 mb-4">$25/month - Advanced tools and advising sessions.</p>
+                    <button class="select-plan-btn bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700" data-plan="Premium" data-price="25" data-display="$25/month">Select Plan</button>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <section id="page-login" class="page-section">
-            <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
-                <h2 id="login-title" class="text-2xl font-bold text-center text-gray-700 mb-6">Login or Create Account</h2>
-                <div class="space-y-4">
-                    <div id="name-field-container" style="display: none;">
-                        <label for="name" class="block text-sm font-medium">Full Name</label>
-                        <input type="text" id="name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
-                    </div>
-                    <div><label for="email" class="block text-sm font-medium">Email</label><input type="email" id="email" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"></div>
-                    <div><label for="password" class="block text-sm font-medium">Password</label><input type="password" id="password" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"></div>
-                    <div id="advisor-check-container" class="flex items-center" style="display: none;">
-                        <input id="is-advisor" type="checkbox" class="h-4 w-4 text-teal-600 border-gray-300 rounded">
-                        <label for="is-advisor" class="ml-2 block text-sm">Are you a financial advisor?</label>
-                    </div>
-                    <div class="flex space-x-4 pt-2">
-                        <button id="login-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-md">Login</button>
-                        <button id="signup-button" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-md">Sign Up & Continue</button>
-                    </div>
+        <div id="page-login" class="hidden">
+            <h1 class="text-3xl font-bold mb-4 text-teal-600">Login or Sign Up</h1>
+            <div class="bg-white p-6 rounded-lg shadow max-w-md mx-auto">
+                <div class="mb-4" id="name-field-container" style="display:none;">
+                    <label class="block text-gray-700 mb-2" for="name">Full Name</label>
+                    <input id="name" type="text" class="w-full p-2 border rounded" placeholder="John Doe">
                 </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="email">Email</label>
+                    <input id="email" type="email" class="w-full p-2 border rounded" placeholder="you@example.com">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="password">Password</label>
+                    <input id="password" type="password" class="w-full p-2 border rounded" placeholder="••••••••">
+                </div>
+                <div class="mb-4" id="advisor-check-container" style="display:none;">
+                    <label class="flex items-center text-gray-700">
+                        <input id="is-advisor" type="checkbox" class="mr-2">
+                        Are you a financial advisor?
+                    </label>
+                </div>
+                <button id="login-button" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 w-full mb-2">Login</button>
+                <button id="signup-button" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 w-full">Sign Up</button>
             </div>
-        </section>
+        </div>
 
-        <section id="page-payment" class="page-section">
-             <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
-                <h2 class="text-2xl font-bold text-center text-gray-700 mb-6">Secure Payment</h2>
-                <p id="payment-plan-details" class="text-center mb-4"></p>
-                <form id="payment-form" class="space-y-4">
-                    <div><label for="cardNumber">Card Number</label><input type="text" id="cardNumber" class="mt-1 block w-full border-gray-300 rounded-md p-2" placeholder="Test card: 4007000000027"></div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label for="expiry">Expiry (MM/YY)</label><input type="text" id="expiry" class="mt-1 block w-full border-gray-300 rounded-md p-2" placeholder="12/25"></div>
-                        <div><label for="cvv">CVV</label><input type="text" id="cvv" class="mt-1 block w-full border-gray-300 rounded-md p-2" placeholder="123"></div>
+        <div id="page-payment" class="hidden">
+            <h1 class="text-3xl font-bold mb-4 text-teal-600">Enter Payment Details</h1>
+            <div class="bg-white p-6 rounded-lg shadow max-w-md mx-auto">
+                <p id="payment-plan-details" class="text-gray-700 mb-4"></p>
+                <form id="payment-form">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2" for="cardNumber">Card Number</label>
+                        <input id="cardNumber" type="text" class="w-full p-2 border rounded" placeholder="4111 1111 1111 1111">
                     </div>
-                    <button id="submit-payment" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-md mt-4">Submit Payment</button>
+                    <div class="mb-4 flex space-x-4">
+                        <div class="w-1/2">
+                            <label class="block text-gray-700 mb-2" for="expiry">Expiry (MM/YY)</label>
+                            <input id="expiry" type="text" class="w-full p-2 border rounded" placeholder="12/25">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-gray-700 mb-2" for="cvv">CVV</label>
+                            <input id="cvv" type="text" class="w-full p-2 border rounded" placeholder="123">
+                        </div>
+                    </div>
+                    <button id="signup-button" type="submit" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 w-full">Complete Sign Up</button>
                 </form>
             </div>
-        </section>
+        </div>
 
-        <section id="page-library" class="page-section">
-            <h2 class="text-3xl font-bold text-center mb-8">Educational Library</h2>
-            <div id="library-content-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-        </section>
+        <div id="page-library" class="hidden">
+            <h1 class="text-3xl font-bold mb-4 text-teal-600">Content Library</h1>
+            <div id="library-content-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </div>
 
-        <section id="page-admin" class="page-section">
-            <div class="max-w-xl mx-auto bg-white p-8 rounded-xl shadow-lg">
-                <h2 class="text-3xl font-bold text-center mb-8">Admin Content Upload</h2>
-                <form id="admin-upload-form" class="space-y-4">
-                    <div><label for="content-title" class="block text-sm font-medium">Title</label><input type="text" id="content-title" class="mt-1 block w-full border-gray-300 rounded-md p-2"></div>
-                    <div><label for="content-desc" class="block text-sm font-medium">Description</label><textarea id="content-desc" rows="3" class="mt-1 block w-full border-gray-300 rounded-md p-2"></textarea></div>
-                    <div><label for="content-access" class="block text-sm font-medium">Access Level</label><select id="content-access" class="mt-1 block w-full border-gray-300 rounded-md p-2"><option value="Essentials">Essentials</option><option value="Premium">Premium</option></select></div>
-                    <div><label for="content-file" class="block text-sm font-medium">File</label><input type="file" id="content-file" class="mt-1 block w-full"></div>
-                    <button id="admin-upload-button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-md mt-4">Upload Content</button>
+        <div id="page-admin" class="hidden">
+            <h1 class="text-3xl font-bold mb-4 text-teal-600">Admin - Upload Content</h1>
+            <div class="bg-white p-6 rounded-lg shadow max-w-md mx-auto">
+                <form id="admin-upload-form">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2" for="content-title">Content Title</label>
+                        <input id="content-title" type="text" class="w-full p-2 border rounded" placeholder="e.g., Budgeting Basics">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2" for="content-desc">Description</label>
+                        <textarea id="content-desc" class="w-full p-2 border rounded" placeholder="Short description of the content"></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2" for="content-access">Access Level</label>
+                        <select id="content-access" class="w-full p-2 border rounded">
+                            <option value="Essentials">Essentials</option>
+                            <option value="Premium">Premium</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 w-full">Upload</button>
                 </form>
             </div>
-        </section>
-    </main>
+        </div>
+    </div>
 
-    <footer class="bg-gray-700 text-gray-300 text-center p-6 mt-12"><p>&copy; 2024 SimpliFinance. All rights reserved.</p></footer>
-    <div id="alert-modal" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm"><h3 id="alert-title" class="text-xl font-bold mb-4"></h3><p id="alert-message"></p><button id="alert-close" class="w-full bg-teal-600 text-white font-semibold py-2 rounded-md mt-4">OK</button></div></div>
+    <div id="alert-modal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+            <h2 id="alert-title" class="text-xl font-bold mb-2"></h2>
+            <p id="alert-message" class="text-gray-700 mb-4"></p>
+            <button id="alert-close" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 w-full">Close</button>
+        </div>
+    </div>
 
     <script type="module">
-        let fakeUser = null; 
+        // Firebase configuration from your project
+        const firebaseConfig = {
+            apiKey: "AIzaSyDRy7LBdKooljXxTuZq_FvpfXJv4Ec65wQ",
+            authDomain: "simplifinance-65ac9.firebaseapp.com",
+            projectId: "simplifinance-65ac9",
+            storageBucket: "simplifinance-65ac9.firebasestorage.app",
+            messagingSenderId: "122545134930",
+            appId: "1:122545134930:web:2ff0a9c123179697fbae8b",
+            measurementId: "G-GL5JQ4XM2V"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+
+        let currentUser = null;
+
         const fakeLibraryDB = [
             { id: 1, title: "Intro to Budgeting", description: "The fundamentals of creating a personal budget.", access: "Essentials", url: "#" },
             { id: 2, title: "Retirement Planning", description: "Strategies for long-term retirement savings.", access: "Essentials", url: "#" },
@@ -135,7 +159,7 @@
 
         const pages = { home: document.getElementById('page-home'), login: document.getElementById('page-login'), payment: document.getElementById('page-payment'), library: document.getElementById('page-library'), admin: document.getElementById('page-admin') };
         const nav = { home: document.getElementById('nav-home'), login: document.getElementById('nav-login'), library: document.getElementById('nav-library'), admin: document.getElementById('nav-admin'), logout: document.getElementById('nav-logout') };
-        
+
         function showPage(pageName) {
             Object.values(pages).forEach(p => p.classList.remove('active'));
             if(pages[pageName]) pages[pageName].classList.add('active');
@@ -148,11 +172,11 @@
         }
 
         function updateUI() {
-            if (fakeUser) {
+            if (currentUser) {
                 nav.login.style.display = 'none';
                 nav.logout.style.display = 'block';
                 nav.library.style.display = 'block';
-                nav.admin.style.display = fakeUser.isAdmin ? 'block' : 'none';
+                nav.admin.style.display = currentUser.isAdmin ? 'block' : 'none';
             } else {
                 nav.login.style.display = 'block';
                 nav.logout.style.display = 'none';
@@ -160,11 +184,11 @@
                 nav.admin.style.display = 'none';
             }
         }
-        
+
         function populateLibrary() {
             const grid = document.getElementById('library-content-grid');
-            grid.innerHTML = ''; 
-            const userPlan = fakeUser ? fakeUser.plan : null;
+            grid.innerHTML = '';
+            const userPlan = currentUser ? currentUser.plan : null;
             if (!userPlan) return;
 
             fakeLibraryDB.forEach(item => {
@@ -177,7 +201,7 @@
                 }
             });
         }
-        
+
         function setupAdminForm() {
             const form = document.getElementById('admin-upload-form');
             form.addEventListener('submit', (e) => {
@@ -200,81 +224,164 @@
             });
         }
 
-        // --- SETUP EVENT LISTENERS ---
         nav.home.addEventListener('click', () => showPage('home'));
         document.getElementById('nav-home-logo').addEventListener('click', () => showPage('home'));
         nav.login.addEventListener('click', () => showPage('login'));
-        nav.library.addEventListener('click', () => showPage('library'));
-        nav.admin.addEventListener('click', () => showPage('admin'));
         document.getElementById('alert-close').addEventListener('click', () => document.getElementById('alert-modal').style.display = 'none');
-        
+
+        nav.library.addEventListener('click', () => {
+            if (currentUser) {
+                populateLibrary();
+                showPage('library');
+            } else {
+                showAlert("Access Denied", "Please log in to access the library.");
+                showPage('login');
+            }
+        });
+
+        nav.admin.addEventListener('click', () => {
+            if (currentUser && currentUser.isAdmin) {
+                showPage('admin');
+            } else {
+                showAlert("Access Denied", "You must be an administrator to access this page.");
+                if(currentUser) showPage('library');
+                else showPage('login');
+            }
+        });
+
         nav.logout.addEventListener('click', () => {
-            fakeUser = null;
+            auth.signOut();
+            currentUser = null;
             updateUI();
             showPage('home');
         });
-        
+
         document.querySelectorAll('.select-plan-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const plan = this.dataset.plan;
                 const priceDisplay = this.dataset.display;
                 const price = this.dataset.price;
-                
-                // Store plan data on a reliable element
+
                 const loginPage = pages.login;
                 loginPage.dataset.plan = plan;
                 loginPage.dataset.price = price;
                 loginPage.dataset.priceDisplay = priceDisplay;
-                
+
                 document.getElementById('name-field-container').style.display = 'block';
                 document.getElementById('advisor-check-container').style.display = 'flex';
                 showPage('login');
             });
         });
 
-        document.getElementById('signup-button').addEventListener('click', () => {
-             const email = document.getElementById('email').value;
-             if (!email) return showAlert("Error", "Email is required to sign up.");
-             
-             const loginPage = pages.login;
-             const plan = loginPage.dataset.plan;
-             const priceDisplay = loginPage.dataset.priceDisplay;
-
-             fakeUser = { 
-                 email, plan,
-                 name: document.getElementById('name').value,
-                 isAdvisor: document.getElementById('is-advisor').checked,
-                 isAdmin: (email === "admin@simplifinance.com")
-             };
-             
-             document.getElementById('payment-plan-details').textContent = `You are subscribing to the ${plan} Plan (${priceDisplay}).`;
-             updateUI();
-             showPage('payment');
-        });
-        
-        document.getElementById('login-button').addEventListener('click', () => {
+        document.getElementById('login-button').addEventListener('click', async () => {
             const email = document.getElementById('email').value;
-            const isAdmin = (email === "admin@simplifinance.com");
-            fakeUser = { email, plan: "Premium", isAdmin };
-            updateUI();
-            populateLibrary();
-            showPage('library');
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                return showAlert("Error", "Email and password are required to log in.");
+            }
+
+            showAlert("Logging In...", "Please wait while we log you in.");
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+            } catch (error) {
+                console.error("Error during login:", error);
+                showAlert("Login Failed", error.message);
+            }
+        });
+
+        document.getElementById('signup-button').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+            const isAdvisor = document.getElementById('is-advisor').checked;
+
+            if (!email || !password || !name) {
+                showAlert("Error", "Full Name, Email, and Password are required to sign up.");
+                showPage('login');
+                return;
+            }
+
+            const loginPage = pages.login;
+            const planName = loginPage.dataset.plan;
+            const priceDisplay = loginPage.dataset.priceDisplay;
+
+            if (pages.payment.classList.contains('active')) {
+                const planPrice = loginPage.dataset.price;
+                const cardNumber = document.getElementById('cardNumber').value;
+                const expiryDate = document.getElementById('expiry').value;
+                const cardCode = document.getElementById('cvv').value;
+
+                if (!cardNumber || !expiryDate || !cardCode) {
+                    return showAlert("Error", "Please fill in all payment details.");
+                }
+
+                showAlert("Signing Up...", "Creating your account and setting up subscription...");
+
+                try {
+                    const response = await fetch('https://us-central1-simplifinance-65ac9.cloudfunctions.net/createSubscription', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email,
+                            password,
+                            planName,
+                            planPrice: parseFloat(planPrice),
+                            paymentDetails: { cardNumber, expiryDate, cardCode },
+                            name,
+                            isAdvisor
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        console.log('Subscription created:', data);
+                        await auth.signInWithEmailAndPassword(email, password);
+                    } else {
+                        throw new Error(data.error || 'Failed to create subscription');
+                    }
+                } catch (error) {
+                    console.error("Error during signup and subscription:", error);
+                    showAlert("Error", error.message);
+                }
+            } else {
+                document.getElementById('payment-plan-details').textContent = `Subscribing to ${planName} (${priceDisplay}).`;
+                showPage('payment');
+            }
         });
 
         document.getElementById('payment-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            showAlert("Processing...", "Your payment is being processed (THIS IS A MOCK).");
-            setTimeout(() => {
-                showAlert("Success!", "Your payment was successful and your subscription is active.");
-                populateLibrary();
-                showPage('library');
-            }, 2000);
+            document.getElementById('signup-button').click();
         });
 
-        // --- APP INITIALIZATION ---
-        showPage('home');
-        updateUI();
-        setupAdminForm();
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                showAlert("Authenticating...", "Loading your profile.");
+                const userDoc = await firestore.collection('users').doc(user.uid).get();
+
+                if (userDoc.exists) {
+                    currentUser = { uid: user.uid, email: user.email, ...userDoc.data() };
+                } else {
+                    currentUser = { uid: user.uid, email: user.email, isAdmin: false, plan: "Essentials" };
+                }
+                updateUI();
+                populateLibrary();
+                showPage('library');
+                document.getElementById('alert-modal').style.display = 'none';
+            } else {
+                currentUser = null;
+                updateUI();
+                if (!pages.home.classList.contains('active') && !pages.login.classList.contains('active')) {
+                    showPage('home');
+                }
+            }
+            setupAdminForm();
+        });
     </script>
 </body>
 </html>

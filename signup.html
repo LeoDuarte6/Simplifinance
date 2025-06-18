@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpliFinance - Sign Up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1E7976; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-gray-800">
+    <header class="bg-gradient-to-r from-white via-teal-50 to-white shadow-md sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full border-2 border-teal-700 flex items-center justify-center font-bold text-teal-700 text-lg bg-white shadow-sm">SF</div>
+                <a href="/" class="text-2xl font-bold text-gray-700 tracking-tight">SimpliFinance</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 py-8">
+        <section id="signup-billing-page">
+            <div class="max-w-lg mx-auto bg-white p-8 md:p-10 rounded-xl shadow-xl mt-8">
+                <h2 class="text-2xl font-bold text-center text-gray-700 mb-6">Complete Your Sign Up</h2>
+                <div id="plan-details-checkout" class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center"></div>
+                <form id="signup-billing-form" class="space-y-5">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Account Information</h3>
+                        <div><label for="email-signup" class="block text-sm font-medium text-gray-600">Email address</label><input type="email" id="email-signup" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md"></div>
+                        <div><label for="password-signup" class="block text-sm font-medium text-gray-600 mt-3">Password</label><input type="password" id="password-signup" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3 mt-6">Secure Billing Information</h3>
+                        <div><label for="cardNumber" class="block text-sm font-medium text-gray-600">Card Number</label><input type="text" id="cardNumber" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md"></div>
+                        <div class="grid grid-cols-2 gap-3 mt-3">
+                            <div><label for="expiry" class="block text-sm font-medium text-gray-600">Expiry (MM/YY)</label><input type="text" id="expiry" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md" placeholder="MM/YY"></div>
+                            <div><label for="cvv" class="block text-sm font-medium text-gray-600">CVV</label><input type="text" id="cvv" required class="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md"></div>
+                        </div>
+                    </div>
+                    <div class="pt-3">
+                        <button type="submit" class="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-md">
+                            <span class="loader mr-2"></span>Create Account & Activate Subscription
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <div id="alert-modal" style="display: none;" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50"><div class="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white"><div class="mt-3 text-center"><h3 id="alert-modal-title" class="text-xl font-bold mb-4"></h3><div class="mt-2 px-7 py-3"><p id="alert-modal-message" class="text-base text-gray-700"></p></div><div class="items-center px-4 py-3"><button id="alert-modal-close" class="px-4 py-2 bg-teal-600 text-white text-base font-medium rounded-md w-full">OK</button></div></div></div></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
+
+        // --- Config ---
+        const firebaseConfig = await fetch('/__/firebase/init.json').then(r => r.json());
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const functions = getFunctions(app);
+        const createSubscription = httpsCallable(functions, 'createSubscription');
+
+        // --- Get Plan Info from URL ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const planName = urlParams.get('plan');
+        const planPrice = urlParams.get('price');
+        const priceDisplay = urlParams.get('display');
+
+        const planDetailsDiv = document.getElementById('plan-details-checkout');
+        if (planName && priceDisplay) {
+            planDetailsDiv.innerHTML = `<h3 class="text-xl font-semibold text-gray-700">${planName}</h3><p class="text-2xl font-bold text-gray-800">${decodeURIComponent(priceDisplay)}</p>`;
+        } else {
+            planDetailsDiv.innerHTML = `<p class="text-red-500">Could not determine plan. Please go back and select one.</p>`;
+        }
+        
+        // --- Modal Logic ---
+        const modal = document.getElementById('alert-modal');
+        document.getElementById('alert-modal-close').addEventListener('click', () => { modal.style.display = 'none'; });
+        function alertModal(message, isSuccess = false) {
+            modal.querySelector('#alert-modal-message').textContent = message;
+            const titleEl = modal.querySelector('#alert-modal-title');
+            titleEl.textContent = isSuccess ? "Success!" : "Alert";
+            titleEl.className = `text-xl font-bold mb-4 ${isSuccess ? "text-green-600" : "text-red-600"}`;
+            modal.style.display = 'flex';
+        }
+
+        // --- Form Submission ---
+        const signupForm = document.getElementById('signup-billing-form');
+        signupForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const submitButton = signupForm.querySelector('button[type="submit"]');
+            const loader = signupForm.querySelector('.loader');
+
+            if (!planName || !planPrice) {
+                alertModal("Plan details are missing. Please go back and select a plan.");
+                return;
+            }
+
+            loader.style.display = 'inline-block';
+            submitButton.disabled = true;
+
+            const functionData = {
+                email: document.getElementById('email-signup').value,
+                password: document.getElementById('password-signup').value,
+                planName: planName,
+                planPrice: planPrice,
+                paymentDetails: {
+                    cardNumber: document.getElementById('cardNumber').value,
+                    expiryDate: document.getElementById('expiry').value,
+                    cardCode: document.getElementById('cvv').value,
+                }
+            };
+            
+            try {
+                const result = await createSubscription(functionData);
+                if (result.data.status === 'success') {
+                    alertModal("Subscription successful! You are now being logged in.", true);
+                    await signInWithEmailAndPassword(auth, functionData.email, functionData.password);
+                    // On successful login, Firebase's own state management will take over.
+                    // For a better UX, you might redirect to a 'welcome' or 'dashboard' page.
+                    window.location.href = "/library.html"; // Redirect to a success page
+                } else {
+                    throw new Error(result.data.message || "An unknown error occurred.");
+                }
+            } catch (error) {
+                console.error("Function call failed:", error);
+                alertModal(`Error: ${error.message}`);
+                loader.style.display = 'none';
+                submitButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
